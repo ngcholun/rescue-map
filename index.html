@@ -321,6 +321,52 @@ function searchCabin(){
   appId: "1:1047215320171:web:ec96b70002c55bb94a552e",
   measurementId: "G-8BY9K2T845"
 };
+      function openForm(cabinDiv) {
+      currentCabin = cabins.find(c => c.id === cabinDiv.id);
+      if (!currentCabin) return;
+
+      formTitle.textContent = currentCabin.id;
+      statusInput.value = currentCabin.fields.status || "";
+      notesInput.value = currentCabin.fields.notes || "";
+      formContainer.style.display = "block";
+    }
+
+    cabinForm.onsubmit = function(e) {
+      e.preventDefault();
+      if (!currentCabin) return;
+
+      // Update local data
+      currentCabin.fields.status = statusInput.value;
+      currentCabin.fields.notes = notesInput.value;
+
+      // Save to Firebase
+      firebase.database()
+        .ref("cabins/" + currentCabin.id)
+        .set(currentCabin.fields)
+        .then(() => {
+          console.log("✅ Saved to Firebase");
+        })
+        .catch(err => {
+          console.error("❌ Firebase error:", err);
+        });
+
+      // Update color locally
+      updateCabinColor(currentCabin);
+
+      // Hide form
+      formContainer.style.display = "none";
+    };
+
+    function updateCabinColor(cabin) {
+      switch (cabin.fields.status) {
+        case "safe": cabin.el.style.background = "lightgreen"; break;
+        case "needsHelp": cabin.el.style.background = "orange"; break;
+        case "rescued": cabin.el.style.background = "lightblue"; break;
+        default: cabin.el.style.background = "#ccc"; break;
+      }
+    }
+    </script>
 </body>
 
 </html>
+
