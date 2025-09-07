@@ -71,13 +71,13 @@
     </form>
   </div>
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"></script>
+  <!-- ✅ Firebase compat SDKs (v8 style APIs) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
   <script>
     /***********************************************************
-     * 🔑 Your Firebase Configuration
+     * 🔑 Firebase Configuration
      ***********************************************************/
     const firebaseConfig = {
       apiKey: "AIzaSyBShQZMBHu1dNGw81tvI3t5IVQtNOYVbR4",
@@ -106,7 +106,7 @@
     const cabins = [];
     let currentCabin = null;
 
-    // Build 84 cabins
+    // Build 84 cabins (7 × 12 grid)
     for (let i = 1; i <= 84; i++) {
       const div = document.createElement("div");
       div.className = "cabin";
@@ -119,7 +119,7 @@
       cabins.push(cabinObj);
 
       /***********************************************************
-       * Step 7: Listen for Firebase realtime updates
+       * ✅ Realtime listener placed inside the loop
        ***********************************************************/
       db.ref("cabins/" + div.id).on("value", snapshot => {
         if (snapshot.exists()) {
@@ -135,7 +135,7 @@
     }
 
     /***********************************************************
-     * Form Handling (Step 6: Save Updates)
+     * Form Handling
      ***********************************************************/
     function openForm(cabinDiv) {
       currentCabin = cabins.find(c => c.id === cabinDiv.id);
@@ -162,6 +162,9 @@
       formContainer.style.display = "none";
     };
 
+    /***********************************************************
+     * Cabin Color Logic
+     ***********************************************************/
     function updateCabinColor(cabin) {
       switch (cabin.fields.status) {
         case "safe": cabin.el.style.background = "lightgreen"; break;
