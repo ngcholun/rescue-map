@@ -169,7 +169,25 @@ function openModal(c){currentCabin=c;modal.style.display="flex";Array.from(form.
 function closeModal(){modal.style.display="none";currentCabin=null;}
 form.onsubmit=(e)=>{e.preventDefault();if(!currentCabin)return;Array.from(form.elements).forEach(el=>{if(el.name)currentCabin.fields[el.name]=el.value;});currentCabin.fields.updatedAt=new Date().toISOString();updateCabinColor(currentCabin);updateQR(currentCabin);db.ref("cabins/"+currentCabin.id).set(currentCabin.fields);closeModal();updateSummary();}
 function clearForm(){if(!currentCabin)return;currentCabin.fields={};Array.from(form.elements).forEach(el=>{if(el.name)el.value="";});db.ref("cabins/"+currentCabin.id).remove();updateCabinColor(currentCabin);updateQR(currentCabin);updateSummary();}
-function updateQR(c){const url=CABIN_BASE_URL+"?id="+encodeURIComponent(c.id);const container=document.getElementById("qrcode");container.innerHTML="";new QRCode(container,{text:url,width:200,height:200,correctLevel:QRCode.CorrectLevel.H});const link=document.createElement("a");link.href=url;link.target="_blank";link.textContent=url;container.appendChild(link);}
+function updateQR(c) {
+  const url = CABIN_BASE_URL + "?id=" + encodeURIComponent(c.id);
+
+  const container = document.getElementById("qrcode");
+  container.innerHTML = "";
+
+  new QRCode(container, {
+    text: url,
+    width: 200,
+    height: 200,
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.textContent = url;
+  container.appendChild(link);
+}
 
 /* search */
 function searchCabin(){const val=document.getElementById("searchBox").value.trim().toLowerCase();let found=null;cabins.forEach(c=>{c.elShape.setAttribute("stroke-width","1");c.elShape.setAttribute("stroke","#333");const seq=c.elLabel.textContent.trim().toLowerCase();if(c.id.toLowerCase()===val||seq===val){found=c;}});if(found){found.elShape.setAttribute("stroke","blue");found.elShape.setAttribute("stroke-width","3");}else alert("Cabin not found");}
@@ -191,4 +209,5 @@ openCabinFromURL();
 
 </script>
 </body>
+
 </html>
