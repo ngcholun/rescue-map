@@ -98,11 +98,11 @@
 <!-- ✅ QR code library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-<!-- ✅ Firebase SDKs FIRST -->
+<!-- ✅ Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
-<!-- ✅ Then our app code -->
+<!-- ✅ Our app code -->
 <script>
 /* Init Firebase */
 const firebaseConfig = {
@@ -118,13 +118,13 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* Map + cabins code (copied from html47) */
+/* Map + cabins setup */
 const svg=document.getElementById('map');
 const cabins=[];
 const upCount=42, downCount=42;
-const CABIN_BASE_URL="https://your-system-url.com/cabin";
+const CABIN_BASE_URL="https://ngcholun.github.io/rescue-map/";
 
-/* base points for stations/towers */
+/* base points */
 const basePoints=[
   {x:100,y:500,label:"TC",type:"station"},
   {x:300,y:460,label:"T1",type:"tower"},
@@ -142,7 +142,6 @@ const basePoints=[
 function shifted(points,dy){return points.map(p=>({...p,y:p.y+dy}));}
 const upPoints=shifted(basePoints,-25), downPoints=shifted(basePoints,+25);
 
-/* drawing functions */
 function drawLine(pts){const poly=document.createElementNS("http://www.w3.org/2000/svg","polyline");poly.setAttribute("points",pts.map(p=>p.x+","+p.y).join(" "));poly.setAttribute("class","line");svg.appendChild(poly);}
 function addArrow(label,p,xo,yo){const line=document.createElementNS("http://www.w3.org/2000/svg","line");line.setAttribute("x1",p.x+xo);line.setAttribute("y1",p.y+yo);line.setAttribute("x2",p.x+xo+40);line.setAttribute("y2",p.y+yo);line.setAttribute("stroke","black");line.setAttribute("stroke-width","2");line.setAttribute("marker-end","url(#arrowHead)");svg.appendChild(line);const txt=document.createElementNS("http://www.w3.org/2000/svg","text");txt.textContent=label;txt.setAttribute("x",p.x+xo+20);txt.setAttribute("y",p.y+yo-5);txt.setAttribute("class","arrow-label");svg.appendChild(txt);}
 function drawStationOrTower(p){if(p.type==="station"){const rect=document.createElementNS("http://www.w3.org/2000/svg","rect");rect.setAttribute("x",p.x-20);rect.setAttribute("y",p.y-30);rect.setAttribute("width","40");rect.setAttribute("height","25");rect.setAttribute("class","station");svg.appendChild(rect);}else{const g=document.createElementNS("http://www.w3.org/2000/svg","g");g.setAttribute("transform",`translate(${p.x},${p.y-20})`);const leg1=document.createElementNS("http://www.w3.org/2000/svg","line");leg1.setAttribute("x1",-10);leg1.setAttribute("y1",0);leg1.setAttribute("x2",-5);leg1.setAttribute("y2",40);leg1.setAttribute("stroke","#333");g.appendChild(leg1);const leg2=document.createElementNS("http://www.w3.org/2000/svg","line");leg2.setAttribute("x1",10);leg2.setAttribute("y1",0);leg2.setAttribute("x2",5);leg2.setAttribute("y2",40);leg2.setAttribute("stroke","#333");g.appendChild(leg2);const beam=document.createElementNS("http://www.w3.org/2000/svg","line");beam.setAttribute("x1",-12);beam.setAttribute("y1",0);beam.setAttribute("x2",12);beam.setAttribute("y2",0);beam.setAttribute("stroke","#333");beam.setAttribute("stroke-width",2);g.appendChild(beam);svg.appendChild(g);}const txt=document.createElementNS("http://www.w3.org/2000/svg","text");txt.setAttribute("x",p.x);txt.setAttribute("y",p.y-35);txt.setAttribute("class","label");txt.textContent=p.label;svg.appendChild(txt);}
@@ -153,29 +152,43 @@ function drawCabin(c){const g=document.createElementNS("http://www.w3.org/2000/s
   db.ref("cabins/"+c.id).on("value", snap=>{if(snap.exists()){c.fields=snap.val();updateCabinColor(c);if(c.fields.sequence)c.elLabel.textContent=c.fields.sequence;}});
 }
 
-/* draw */
+/* draw system */
 drawLine(upPoints); drawLine(downPoints);
 addArrow("Uphill", upPoints[1], 0, -15); addArrow("Downhill", downPoints[downPoints.length-2], 0, +20);
 basePoints.forEach(drawStationOrTower);
 drawCabins(upPoints,upCount,"up"); drawCabins(downPoints,downCount,"down");
 
-/* color & summary */
+/* updates + summary */
 function updateCabinColor(c){const f=c.fields; c.elShape.setAttribute("fill","white"); c.elGroup.classList.remove("status-red","status-yellow","status-green"); if(f.timeLanded){c.elGroup.classList.add("status-green");} else if(f.rescuedBy){c.elGroup.classList.add("status-yellow");} else if(Object.values(f).some(v=>v)){c.elGroup.classList.add("status-red");} updateSummary();}
 function updateSummary(){let waiting=0,landed=0;cabins.forEach(c=>{if(c.fields&&c.fields.timeLanded){landed++;}else if(Object.values(c.fields).some(v=>v)){waiting++;}});document.getElementById("waitingCount").textContent=waiting;document.getElementById("landedCount").textContent=landed;}
 function applySequences(){const seq=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);cabins.forEach((c,i)=>{const label=seq[i]||"";c.elLabel.textContent=label;c.fields.sequence=label;db.ref("cabins/"+c.id).update(c.fields);});}
 
-/* modal */
+/* modal + QR */
 const modal=document.getElementById('formModal'),form=document.getElementById('cabinForm');let currentCabin=null;
 function openModal(c){currentCabin=c;modal.style.display="flex";Array.from(form.elements).forEach(el=>{if(el.name)el.value=c.fields[el.name]||"";});const lu=document.getElementById("lastUpdated");if(c.fields.updatedAt){lu.textContent="Last updated: "+new Date(c.fields.updatedAt).toLocaleString();}else{lu.textContent="";}updateQR(c);}
 function closeModal(){modal.style.display="none";currentCabin=null;}
 form.onsubmit=(e)=>{e.preventDefault();if(!currentCabin)return;Array.from(form.elements).forEach(el=>{if(el.name)currentCabin.fields[el.name]=el.value;});currentCabin.fields.updatedAt=new Date().toISOString();updateCabinColor(currentCabin);updateQR(currentCabin);db.ref("cabins/"+currentCabin.id).set(currentCabin.fields);closeModal();updateSummary();}
 function clearForm(){if(!currentCabin)return;currentCabin.fields={};Array.from(form.elements).forEach(el=>{if(el.name)el.value="";});db.ref("cabins/"+currentCabin.id).remove();updateCabinColor(currentCabin);updateQR(currentCabin);updateSummary();}
-
-/* QR */
-function updateQR(c){const params=new URLSearchParams({id:c.id,...c.fields});const url=CABIN_BASE_URL+"?"+params.toString();const container=document.getElementById("qrcode");container.innerHTML="";new QRCode(container,{text:url,width:150,height:150,correctLevel:QRCode.CorrectLevel.H});const link=document.createElement("a");link.href=url;link.target="_blank";link.textContent=url;container.appendChild(link);}
+function updateQR(c){const url=CABIN_BASE_URL+"?id="+encodeURIComponent(c.id);const container=document.getElementById("qrcode");container.innerHTML="";new QRCode(container,{text:url,width:200,height:200,correctLevel:QRCode.CorrectLevel.H});const link=document.createElement("a");link.href=url;link.target="_blank";link.textContent=url;container.appendChild(link);}
 
 /* search */
 function searchCabin(){const val=document.getElementById("searchBox").value.trim().toLowerCase();let found=null;cabins.forEach(c=>{c.elShape.setAttribute("stroke-width","1");c.elShape.setAttribute("stroke","#333");const seq=c.elLabel.textContent.trim().toLowerCase();if(c.id.toLowerCase()===val||seq===val){found=c;}});if(found){found.elShape.setAttribute("stroke","blue");found.elShape.setAttribute("stroke-width","3");}else alert("Cabin not found");}
+
+/* ✅ Auto-open cabin from QR URL */
+function openCabinFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("id");
+  if (!id) return;
+  const check = setInterval(() => {
+    const cabin = cabins.find(c => c.id === id);
+    if (cabin) {
+      clearInterval(check);
+      openModal(cabin);
+    }
+  }, 300);
+}
+openCabinFromURL();
+
 </script>
 </body>
 </html>
