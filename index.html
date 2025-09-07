@@ -107,32 +107,32 @@
     let currentCabin = null;
 
     // Build 84 cabins (7 × 12 grid)
-    for (let i = 1; i <= 84; i++) {
-      const div = document.createElement("div");
-      div.className = "cabin";
-      div.id = "CABIN_" + i;
-      div.textContent = "Cabin " + i;
-      div.onclick = () => openForm(div);
-      map.appendChild(div);
+ for (let i = 1; i <= 84; i++) {
+  const div = document.createElement("div");
+  div.className = "cabin";
+  div.id = "CABIN_" + i;
+  div.textContent = "Cabin " + i;
+  div.onclick = () => openForm(div);
+  map.appendChild(div);
 
-      const cabinObj = { id: div.id, el: div, fields: { status: "", notes: "" } };
-      cabins.push(cabinObj);
+  const cabinObj = { id: div.id, el: div, fields: { status: "", notes: "" } };
+  cabins.push(cabinObj);
 
-      /***********************************************************
-       * ✅ Realtime listener placed inside the loop
-       ***********************************************************/
-      db.ref("cabins/" + div.id).on("value", snapshot => {
-        if (snapshot.exists()) {
-          cabinObj.fields = snapshot.val();
-          updateCabinColor(cabinObj);
+  // ✅ Realtime listener here, tied to this cabin
+  firebase.database()
+    .ref("cabins/" + div.id)
+    .on("value", snapshot => {
+      if (snapshot.exists()) {
+        cabinObj.fields = snapshot.val();
+        updateCabinColor(cabinObj);
 
-          if (currentCabin && currentCabin.id === cabinObj.id) {
-            statusInput.value = cabinObj.fields.status || "";
-            notesInput.value = cabinObj.fields.notes || "";
-          }
+        if (currentCabin && currentCabin.id === cabinObj.id) {
+          statusInput.value = cabinObj.fields.status || "";
+          notesInput.value  = cabinObj.fields.notes  || "";
         }
-      });
-    }
+      }
+    });
+}
 
     /***********************************************************
      * Form Handling
@@ -175,4 +175,5 @@
     }
   </script>
 </body>
+
 </html>
