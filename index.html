@@ -1,100 +1,336 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Rescue Cabin Map</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background: #f4f4f4;
-    }
-    h1 {
-      text-align: center;
-    }
-    .map {
-      display: grid;
-      grid-template-columns: repeat(7, 80px);
-      gap: 10px;
-      justify-content: center;
-      margin-top: 20px;
-    }
-    .cabin {
-      width: 80px;
-      height: 80px;
-      background: #ccc;
-      border: 2px solid #444;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 12px;
-      text-align: center;
-    }
-    .form-container {
-      margin-top: 30px;
-      display: none;
-      text-align: center;
-    }
-    label, select, textarea {
-      display: block;
-      margin: 10px auto;
-      width: 200px;
-    }
-    button {
-      padding: 8px 16px;
-      margin-top: 10px;
-      cursor: pointer;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Ngong Ping 360 – Rescue Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body{margin:0;font-family:sans-serif;}
+  #summary {
+    position:absolute;top:50%;left:10px;
+    transform:translateY(-50%);
+    background:rgba(255,255,255,0.9);
+    border:1px solid #333;
+    padding:8px;
+    font-size:14px;
+    border-radius:4px;
+    z-index:2;
+  }
+  #controls{padding:10px;background:#eee;}
+  #seqInput{width:100%;height:60px;}
+  svg{width:100%;height:600px;display:block;}
+  .sky{fill:url(#skyGrad);}
+  .mountain{fill:#6fbf73;}
+  .line{fill:none;stroke:#444;stroke-width:3;}
+  .station{fill:#fff;stroke:#333;stroke-width:2;}
+  .label{font-size:12px;text-anchor:middle;}
+  .cabin{cursor:pointer;}
+  .status-red polygon{fill:red;}
+  .status-yellow polygon{fill:yellow;}
+  .status-green polygon{fill:lime;}
+  .seq-label{
+    font-size:10px;text-anchor:middle;dominant-baseline:hanging;
+    fill:black;paint-order:stroke;stroke:white;stroke-width:2px;
+  }
+  .modal{position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:3;}
+  .modal-content{background:#fff;padding:20px;max-width:400px;width:90%;border-radius:5px;font-size:14px;}
+  .modal-content h2{margin-top:0;}
+  .modal-content label{display:block;margin-top:8px;}
+  .modal-content input,.modal-content textarea{width:100%;padding:5px;margin-top:2px;}
+  .modal-content button{margin-top:12px;padding:8px 12px;}
+  #qrcode{text-align:center;margin-top:15px;}
+  #qrcode a{display:block;margin-top:8px;font-size:12px;word-break:break-all;}
+  .arrow-label{font-size:14px;fill:#000;font-weight:bold;}
+</style>
 </head>
 <body>
-  <h1>Rescue Cabin Map</h1>
-  <div class="map" id="map"></div>
 
-  <div class="form-container" id="formContainer">
-    <h2 id="formTitle">Cabin</h2>
-    <form id="cabinForm">
-      <label for="status">Status</label>
-      <select id="status">
-        <option value="">-- choose --</option>
-        <option value="safe">Safe</option>
-        <option value="needsHelp">Needs Help</option>
-        <option value="rescued">Rescued</option>
-      </select>
+<!-- Summary -->
+<div id="summary">
+  <div><strong>Waiting for help:</strong> <span id="waitingCount">0</span></div>
+  <div><strong>Landed:</strong> <span id="landedCount">0</span></div>
+</div>
 
-      <label for="notes">Notes</label>
-      <textarea id="notes"></textarea>
-
-      <button type="submit">Save Status</button>
-    </form>
+<!-- Controls -->
+<div id="controls">
+  <p>Enter cabin sequence numbers (comma/space separated):</p>
+  <textarea id="seqInput"></textarea><br>
+  <button onclick="applySequences()">Apply Sequences</button>
+  <div style="margin-top:10px;">
+    <input type="text" id="searchBox" placeholder="Search cabin…">
+    <button onclick="searchCabin()">Search</button>
   </div>
+</div>
 
-  <!-- ✅ Firebase compat SDKs (v8 style APIs) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<!-- Map -->
+<svg id="map" viewBox="0 0 1800 600">
+  <defs>
+    <marker id="arrowHead" markerWidth="10" markerHeight="7"
+            refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="black"/>
+    </marker>
+    <linearGradient id="skyGrad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#87ceeb"/>
+      <stop offset="100%" stop-color="#e0f7fa"/>
+    </linearGradient>
+  </defs>
+  <!-- Sky -->
+  <rect width="1800" height="600" class="sky"/>
+  <!-- Continuous Mountain -->
+  <path d="M0,550 
+           Q300,450 600,400 
+           Q900,350 1200,300 
+           Q1500,200 1800,120 
+           L1800,600 L0,600 Z" 
+        class="mountain"/>
+</svg>
 
-  <script>
+<!-- Modal -->
+<div class="modal" id="formModal">
+  <div class="modal-content">
+    <h2>Cabin Info</h2>
+    <form id="cabinForm">
+      <label>Guest name:<input name="guestName"></label>
+      <label>Contact number:<input name="contactNumber"></label>
+      <label>Health Condition:<input name="health"></label>
+      <label>Request ambulance:<input name="ambulance"></label>
+      <label>Rescued by:<input name="rescuedBy"></label>
+      <label>Time reached top:<input name="timeReachedTop" type="time"></label>
+      <label>Time landed:<input name="timeLanded" type="time"></label>
+      <label>Remarks:<textarea name="remarks"></textarea></label>
+      <button type="submit">Save</button>
+      <button type="button" onclick="clearForm()">Clear</button>
+      <button type="button" onclick="closeModal()">Cancel</button>
+    </form>
+    <div id="qrcode"></div>
+  </div>
+</div>
+
+<!-- ✅ QR code library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+const svg=document.getElementById('map');
+const cabins=[];
+const upCount=42, downCount=42;
+
+// 👉 CHANGE THIS to your real system URL
+const CABIN_BASE_URL="https://your-system-url.com/cabin";
+
+// route points
+const basePoints=[
+  {x:100,y:500,label:"TC",type:"station"},
+  {x:300,y:460,label:"T1",type:"tower"},
+  {x:480,y:420,label:"T2A",type:"tower"},
+  {x:650,y:380,label:"AIAS",type:"station"},
+  {x:820,y:340,label:"T2B",type:"tower"},
+  {x:1000,y:300,label:"T3",type:"tower"},
+  {x:1150,y:270,label:"T4",type:"tower"},
+  {x:1280,y:240,label:"T5",type:"tower"},
+  {x:1400,y:210,label:"NLS",type:"station"},
+  {x:1500,y:180,label:"T6",type:"tower"},
+  {x:1600,y:160,label:"T7",type:"tower"},
+  {x:1750,y:140,label:"NPT",type:"station"}
+];
+function shifted(points,dy){return points.map(p=>({...p,y:p.y+dy}));}
+const upPoints=shifted(basePoints,-25), downPoints=shifted(basePoints,+25);
+
+// draw lines + arrows
+function drawLine(pts){
+  const poly=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+  poly.setAttribute("points",pts.map(p=>p.x+","+p.y).join(" "));
+  poly.setAttribute("class","line");svg.appendChild(poly);
+}
+drawLine(upPoints); drawLine(downPoints);
+
+function addArrow(label, basePoint, xOffset, yOffset){
+  const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+  line.setAttribute("x1",basePoint.x+xOffset);
+  line.setAttribute("y1",basePoint.y+yOffset);
+  line.setAttribute("x2",basePoint.x+xOffset+40);
+  line.setAttribute("y2",basePoint.y+yOffset);
+  line.setAttribute("stroke","black");
+  line.setAttribute("stroke-width","2");
+  line.setAttribute("marker-end","url(#arrowHead)");
+  svg.appendChild(line);
+  const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
+  txt.textContent=label;
+  txt.setAttribute("x",basePoint.x+xOffset+20);
+  txt.setAttribute("y",basePoint.y+yOffset-5);
+  txt.setAttribute("class","arrow-label");
+  svg.appendChild(txt);
+}
+addArrow("Uphill", upPoints[1], 0, -15);
+addArrow("Downhill", downPoints[downPoints.length-2], 0, +20);
+
+// towers & stations
+basePoints.forEach(p=>{
+  if(p.type==="station"){
+    const rect=document.createElementNS("http://www.w3.org/2000/svg","rect");
+    rect.setAttribute("x",p.x-20);rect.setAttribute("y",p.y-30);
+    rect.setAttribute("width","40");rect.setAttribute("height","25");
+    rect.setAttribute("class","station");svg.appendChild(rect);
+  }else{
+    const g=document.createElementNS("http://www.w3.org/2000/svg","g");
+    g.setAttribute("transform",`translate(${p.x},${p.y-20})`);
+    const leg1=document.createElementNS("http://www.w3.org/2000/svg","line");
+    leg1.setAttribute("x1",-10);leg1.setAttribute("y1",0);
+    leg1.setAttribute("x2",-5);leg1.setAttribute("y2",40);leg1.setAttribute("stroke","#333");g.appendChild(leg1);
+    const leg2=document.createElementNS("http://www.w3.org/2000/svg","line");
+    leg2.setAttribute("x1",10);leg2.setAttribute("y1",0);
+    leg2.setAttribute("x2",5);leg2.setAttribute("y2",40);leg2.setAttribute("stroke","#333");g.appendChild(leg2);
+    const beam=document.createElementNS("http://www.w3.org/2000/svg","line");
+    beam.setAttribute("x1",-12);beam.setAttribute("y1",0);
+    beam.setAttribute("x2",12);beam.setAttribute("y2",0);
+    beam.setAttribute("stroke","#333");
+    beam.setAttribute("stroke-width",2);
+    g.appendChild(beam);
+    svg.appendChild(g);
+  }
+  const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
+  txt.setAttribute("x",p.x);txt.setAttribute("y",p.y-35);
+  txt.setAttribute("class","label");
+  txt.textContent=p.label;
+  svg.appendChild(txt);
+});
+
+// cabins
+function segs(points){const arr=[];for(let i=0;i<points.length-1;i++){const [x1,y1]=[points[i].x,points[i].y],[x2,y2]=[points[i+1].x,points[i+1].y];const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);arr.push({x1,y1,x2,y2,len});}return arr;}
+function pointAt(segs,t){const length=segs.reduce((a,s)=>a+s.len,0), target=t*length;let dist=0;for(const s of segs){if(dist+s.len>=target){const r=(target-dist)/s.len;return [s.x1+(s.x2-s.x1)*r,s.y1+(s.y2-s.y1)*r];}dist+=s.len;}const last=segs[segs.length-1];return [last.x2,last.y2];}
+function drawCabins(points,count,direction){const seglist=segs(points);for(let i=0;i<count;i++){const pos=pointAt(seglist,i/(count-1||1));const cabin={id:direction+"-"+i,fields:{},x:pos[0],y:pos[1]};cabins.push(cabin);drawCabin(cabin);}}
+function drawCabin(c){
+  const g=document.createElementNS("http://www.w3.org/2000/svg","g");
+  g.setAttribute("class","cabin");
+  g.setAttribute("transform",`translate(${c.x},${c.y})`);
+  const size=12, pts=[];
+  for(let j=0;j<6;j++){const a=Math.PI/3*j;pts.push((size*Math.cos(a))+","+(size*Math.sin(a)));}
+  const poly=document.createElementNS("http://www.w3.org/2000/svg","polygon");
+  poly.setAttribute("points",pts.join(" "));
+  poly.setAttribute("stroke","#333");
+  poly.setAttribute("fill","white");
+  g.appendChild(poly);
+  const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
+  txt.setAttribute("y",size+2);
+  txt.setAttribute("class","seq-label");
+  g.appendChild(txt);
+  c.elGroup=g; c.elShape=poly; c.elLabel=txt;
+  g.addEventListener("click",()=>openModal(c));
+  svg.appendChild(g);
+}
+drawCabins(upPoints,upCount,"up");
+drawCabins(downPoints,downCount,"down");
+
+// update color + summary
+function updateCabinColor(c){
+  const f=c.fields;
+  c.elShape.setAttribute("fill","white");
+  c.elGroup.classList.remove("status-red","status-yellow","status-green");
+  if(f.timeLanded){c.elGroup.classList.add("status-green");}
+  else if(f.rescuedBy){c.elGroup.classList.add("status-yellow");}
+  else if(Object.values(f).some(v=>v)){c.elGroup.classList.add("status-red");}
+  updateSummary();
+}
+function applySequences(){
+  const seq=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);
+  cabins.forEach((c,i)=>c.elLabel.textContent=seq[i]||"");
+}
+function updateSummary(){
+  let waiting=0,landed=0;
+  cabins.forEach(c=>{
+    if(c.fields && c.fields.timeLanded){landed++;}
+    else if(Object.values(c.fields).some(v=>v)){waiting++;}
+  });
+  document.getElementById("waitingCount").textContent=waiting;
+  document.getElementById("landedCount").textContent=landed;
+}
+
+// modal
+const modal=document.getElementById('formModal'),form=document.getElementById('cabinForm');let currentCabin=null;
+function openModal(c){
+  currentCabin=c;
+  modal.style.display="flex";
+  Array.from(form.elements).forEach(el=>{if(el.name)el.value=c.fields[el.name]||"";});
+  updateQR(c);
+}
+function closeModal(){modal.style.display="none";currentCabin=null;}
+function clearForm(){
+  if(!currentCabin)return;
+  currentCabin.fields={};
+  Array.from(form.elements).forEach(el=>{if(el.name)el.value="";});
+  currentCabin.elShape.setAttribute("fill","white");
+  currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");
+  updateQR(currentCabin);
+  updateSummary();
+}
+form.onsubmit=(e)=>{
+  e.preventDefault();
+  if(!currentCabin)return;
+  Array.from(form.elements).forEach(el=>{if(el.name)currentCabin.fields[el.name]=el.value;});
+  updateCabinColor(currentCabin);
+  updateQR(currentCabin);
+  closeModal();
+  updateSummary();
+}
+
+// ✅ QR code generator
+function updateQR(c){
+  const params=new URLSearchParams({id:c.id,...c.fields});
+  const url=CABIN_BASE_URL+"?"+params.toString();
+  const container=document.getElementById("qrcode");
+  container.innerHTML="";
+  new QRCode(container,{
+    text:url,
+    width:150,
+    height:150,
+    correctLevel:QRCode.CorrectLevel.H
+  });
+  const link=document.createElement("a");
+  link.href=url;
+  link.target="_blank";
+  link.textContent=url;
+  container.appendChild(link);
+}
+
+// search
+function searchCabin(){
+  const val=document.getElementById("searchBox").value.trim().toLowerCase();
+  let found=null;
+  cabins.forEach(c=>{
+    c.elShape.setAttribute("stroke-width","1");
+    c.elShape.setAttribute("stroke","#333");
+    const seq=c.elLabel.textContent.trim().toLowerCase();
+    if(c.id.toLowerCase()===val || seq===val){found=c;}
+  });
+  if(found){
+    found.elShape.setAttribute("stroke","blue");
+    found.elShape.setAttribute("stroke-width","3");
+    const vb=svg.viewBox.baseVal;
+    vb.x=found.x-(vb.width/2);
+    vb.y=found.y-(vb.height/2);
+  }else alert("Cabin not found");
+}
+</script>
     /***********************************************************
-     * 🔑 Firebase Configuration
+     * 🔑 Step 5: Firebase Initialization
+     * Replace with YOUR Firebase config from Project Settings
      ***********************************************************/
     const firebaseConfig = {
-      apiKey: "AIzaSyBShQZMBHu1dNGw81tvI3t5IVQtNOYVbR4",
-      authDomain: "rescue-map-cb629.firebaseapp.com",
-      databaseURL: "https://rescue-map-cb629-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "rescue-map-cb629",
-      storageBucket: "rescue-map-cb629.firebasestorage.app",
-      messagingSenderId: "1047215320171",
-      appId: "1:1047215320171:web:ec96b70002c55bb94a552e",
-      measurementId: "G-8BY9K2T845"
-    };
+  apiKey: "AIzaSyBShQZMBHu1dNGw81tvI3t5IVQtNOYVbR4",
+  authDomain: "rescue-map-cb629.firebaseapp.com",
+  databaseURL: "https://rescue-map-cb629-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "rescue-map-cb629",
+  storageBucket: "rescue-map-cb629.firebasestorage.app",
+  messagingSenderId: "1047215320171",
+  appId: "1:1047215320171:web:ec96b70002c55bb94a552e",
+  measurementId: "G-8BY9K2T845"
+};
 
     const app = firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
     /***********************************************************
-     * Map + Form Setup
+     * Cabin Map Setup
      ***********************************************************/
     const map = document.getElementById("map");
     const formContainer = document.getElementById("formContainer");
@@ -107,7 +343,7 @@
     let currentCabin = null;
 
     // Build 84 cabins (7 × 12 grid)
- for (let i = 1; i <= 84; i++) {
+   for (let i = 1; i <= 84; i++) {
   const div = document.createElement("div");
   div.className = "cabin";
   div.id = "CABIN_" + i;
@@ -140,6 +376,7 @@
     function openForm(cabinDiv) {
       currentCabin = cabins.find(c => c.id === cabinDiv.id);
       if (!currentCabin) return;
+
       formTitle.textContent = currentCabin.id;
       statusInput.value = currentCabin.fields.status || "";
       notesInput.value = currentCabin.fields.notes || "";
@@ -150,15 +387,23 @@
       e.preventDefault();
       if (!currentCabin) return;
 
+      // Update data locally
       currentCabin.fields.status = statusInput.value;
       currentCabin.fields.notes = notesInput.value;
 
-      db.ref("cabins/" + currentCabin.id)
+      /***********************************************************
+       * Step 6: Save data to Firebase
+       ***********************************************************/
+      firebase.database()
+        .ref("cabins/" + currentCabin.id)
         .set(currentCabin.fields)
         .then(() => console.log("✅ Saved to Firebase"))
         .catch(err => console.error("❌ Firebase error:", err));
 
+      // Update cabin color
       updateCabinColor(currentCabin);
+
+      // Hide form
       formContainer.style.display = "none";
     };
 
@@ -175,5 +420,4 @@
     }
   </script>
 </body>
-
 </html>
