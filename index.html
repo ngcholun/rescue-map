@@ -365,8 +365,26 @@ function searchCabin(){
         default: cabin.el.style.background = "#ccc"; break;
       }
     }
+  // After creating each cabin
+firebase.database().ref("cabins/" + div.id).on("value", snapshot => {
+  if (snapshot.exists()) {
+    currentData = snapshot.val();
+    const cabinData = cabins.find(c => c.id === div.id);
+    cabinData.fields = currentData;
+
+    // Sync UI
+    updateCabinColor(cabinData);
+
+    // If this cabin is currently open in the form, refresh form fields
+    if (currentCabin && currentCabin.id === cabinData.id) {
+      statusInput.value = cabinData.fields.status || "";
+      notesInput.value = cabinData.fields.notes || "";
+    }
+  }
+});
     </script>
 </body>
 
 </html>
+
 
