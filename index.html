@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Ngong Ping 360 – Rescue Map (Final Fixed Script)</title>
+<title>Ngong Ping 360 – Rescue Map</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   body{margin:0;font-family:sans-serif;}
@@ -20,9 +20,19 @@
   .status-red polygon{fill:red;}
   .status-yellow polygon{fill:yellow;}
   .status-green polygon{fill:lime;}
-  .seq-label{font-size:10px;text-anchor:middle;dominant-baseline:hanging;fill:black;paint-order:stroke;stroke:white;stroke-width:2px;}
-  .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:3;}
-  .modal-content{background:#fff;padding:20px;max-width:400px;width:90%;border-radius:5px;font-size:14px;}
+  .seq-label{
+    font-size:12px;
+    font-weight:bold;
+    fill:black;
+    text-anchor:middle;
+    dominant-baseline:middle;
+    pointer-events:none;
+  }
+  .modal{position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.5);display:none;
+    align-items:center;justify-content:center;z-index:3;}
+  .modal-content{background:#fff;padding:20px;max-width:400px;width:90%;
+    border-radius:5px;font-size:14px;}
   .modal-content label{display:block;margin-top:6px;}
   .modal-content input,.modal-content textarea{width:100%;padding:5px;margin-top:2px;}
   .modal-content button{margin-top:10px;padding:6px 10px;}
@@ -89,26 +99,53 @@ const db=firebase.database();
 
 // ===== Geometry =====
 const svg=document.getElementById("map");
-const segments=[{name:"TC",cabins:3},{name:"T1",cabins:2},{name:"T2A",cabins:2},{name:"AIAS",cabins:2},{name:"T2B",cabins:9},{name:"T3",cabins:6},{name:"T4",cabins:5},{name:"T5",cabins:1},{name:"NLS",cabins:2},{name:"T6",cabins:7},{name:"T7",cabins:3},{name:"NP",cabins:0}];
+const segments=[
+  {name:"TC",cabins:3},{name:"T1",cabins:2},{name:"T2A",cabins:2},
+  {name:"AIAS",cabins:2},{name:"T2B",cabins:9},{name:"T3",cabins:6},
+  {name:"T4",cabins:5},{name:"T5",cabins:1},{name:"NLS",cabins:2},
+  {name:"T6",cabins:7},{name:"T7",cabins:3},{name:"NP",cabins:0}
+];
 const stationNames=["TC","AIAS","NLS","NP"];
 const totalUp=segments.reduce((a,s)=>a+s.cabins,0), totalCabins=totalUp*2;
 const startX=100,endX=1900,usableWidth=endX-startX,slotWidth=usableWidth/totalUp,risePerSlot=6;
 
 // ridge
-function buildGround(){let x=startX,y=600;const pts=[[x,y]];for(let i=0;i<segments.length-1;i++){x+=segments[i].cabins*slotWidth;y-=segments[i].cabins*risePerSlot;pts.push([x,y]);}return pts;}
+function buildGround(){let x=startX,y=600;const pts=[[x,y]];
+  for(let i=0;i<segments.length-1;i++){x+=segments[i].cabins*slotWidth;y-=segments[i].cabins*risePerSlot;pts.push([x,y]);}
+  return pts;
+}
 const groundPts=buildGround();
 let d=`M0,700 L${groundPts[0][0]},${groundPts[0][1]}`;
-for(let i=1;i<groundPts.length;i++){const [x0,y0]=groundPts[i-1],[x1,y1]=groundPts[i];const cx=(x0+x1)/2,cy=(y0+y1)/2;d+=` Q${cx},${cy} ${x1},${y1}`;}
-const last=groundPts[groundPts.length-1];d+=` L${last[0]},700 L0,700 Z`;
-const mountain=document.createElementNS("http://www.w3.org/2000/svg","path");mountain.setAttribute("d",d);mountain.setAttribute("class","mountain");svg.appendChild(mountain);
+for(let i=1;i<groundPts.length;i++){
+  const [x0,y0]=groundPts[i-1],[x1,y1]=groundPts[i];
+  const cx=(x0+x1)/2,cy=(y0+y1)/2;
+  d+=` Q${cx},${cy} ${x1},${y1}`;
+}
+const last=groundPts[groundPts.length-1];
+d+=` L${last[0]},700 L0,700 Z`;
+const mountain=document.createElementNS("http://www.w3.org/2000/svg","path");
+mountain.setAttribute("d",d);
+mountain.setAttribute("class","mountain");
+svg.appendChild(mountain);
 
-// helper: draw rectangle
-function drawRect(x,y,w,h){const r=document.createElementNS("http://www.w3.org/2000/svg","rect");r.setAttribute("x",x);r.setAttribute("y",y);r.setAttribute("width",w);r.setAttribute("height",h);r.setAttribute("class","station");svg.appendChild(r);return r;}
+// rect helper
+function drawRect(x,y,w,h){
+  const r=document.createElementNS("http://www.w3.org/2000/svg","rect");
+  r.setAttribute("x",x);r.setAttribute("y",y);
+  r.setAttribute("width",w);r.setAttribute("height",h);
+  r.setAttribute("class","station");
+  svg.appendChild(r);return r;
+}
 
-// stations and towers
-segments.forEach((s,i)=>{const [x,y]=groundPts[i];
-  if(stationNames.includes(s.name)){drawRect(x-22,y-20,44,20);}else{drawRect(x-12,y-12,24,12);}
-  const txt=document.createElementNS("http://www.w3.org/2000/svg","text");txt.setAttribute("x",x);txt.setAttribute("y",y-30);txt.setAttribute("class","label");txt.textContent=s.name;svg.appendChild(txt);
+// stations/towers
+segments.forEach((s,i)=>{
+  const [x,y]=groundPts[i];
+  if(stationNames.includes(s.name)){drawRect(x-22,y-20,44,20);}
+  else{drawRect(x-12,y-12,24,12);}
+  const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
+  txt.setAttribute("x",x);txt.setAttribute("y",y-30);
+  txt.setAttribute("class","label");txt.textContent=s.name;
+  svg.appendChild(txt);
 });
 
 // rope loop
@@ -116,74 +153,214 @@ const offset=60;
 const upPts=groundPts.map(p=>[p[0],p[1]-offset]);
 const downPts=groundPts.map(p=>[p[0],p[1]+offset]).reverse();
 const ropePts=[...upPts,...downPts,[upPts[0][0],upPts[0][1]]];
-const rope=document.createElementNS("http://www.w3.org/2000/svg","polyline");rope.setAttribute("points",ropePts.map(p=>p.join(",")).join(" "));rope.setAttribute("class","rope");svg.appendChild(rope);
-// masts
-segments.forEach((s,i)=>{const [x,y]=groundPts[i],[xu,yu]=upPts[i];const mast=document.createElementNS("http://www.w3.org/2000/svg","line");mast.setAttribute("x1",x);mast.setAttribute("y1",y);mast.setAttribute("x2",xu);mast.setAttribute("y2",yu);mast.setAttribute("class","mast");svg.appendChild(mast);});
+const rope=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+rope.setAttribute("points",ropePts.map(p=>p.join(",")).join(" "));
+rope.setAttribute("class","rope");
+svg.appendChild(rope);
+segments.forEach((s,i)=>{
+  const [x,y]=groundPts[i],[xu,yu]=upPts[i];
+  const mast=document.createElementNS("http://www.w3.org/2000/svg","line");
+  mast.setAttribute("x1",x);mast.setAttribute("y1",y);
+  mast.setAttribute("x2",xu);mast.setAttribute("y2",yu);
+  mast.setAttribute("class","mast");
+  svg.appendChild(mast);
+});
 
 // rope helpers
-function lengthOf(pts){let L=0;for(let i=0;i<pts.length-1;i++){const dx=pts[i+1][0]-pts[i][0],dy=pts[i+1][1]-pts[i][1];L+=Math.hypot(dx,dy);}return L;}
-function pointAt(pts,d){let sum=0;for(let i=0;i<pts.length-1;i++){const [x1,y1]=pts[i],[x2,y2]=pts[i+1];const seg=Math.hypot(x2-x1,y2-y1);if(sum+seg>=d){const t=(d-sum)/seg;return{x:x1+(x2-x1)*t,y:y1+(y2-y1)*t};}sum+=seg;}const last=pts[pts.length-1];return{x:last[0],y:last[1]};}
+function lengthOf(pts){
+  let L=0;for(let i=0;i<pts.length-1;i++){
+    const dx=pts[i+1][0]-pts[i][0],dy=pts[i+1][1]-pts[i][1];
+    L+=Math.hypot(dx,dy);
+  }return L;
+}
+function pointAt(pts,d){
+  let sum=0;
+  for(let i=0;i<pts.length-1;i++){
+    const [x1,y1]=pts[i],[x2,y2]=pts[i+1];
+    const seg=Math.hypot(x2-x1,y2-y1);
+    if(sum+seg>=d){
+      const t=(d-sum)/seg;
+      return{x:x1+(x2-x1)*t,y:y1+(y2-y1)*t};
+    }sum+=seg;
+  }const last=pts[pts.length-1];
+  return{x:last[0],y:last[1]};
+}
 const ropeLen=lengthOf(ropePts);
 
 // ===== Cabins =====
 const cabins=[];let globalOffset=0;let isDragging=false,lastX=0;
 for(let i=0;i<totalCabins;i++){
-  const g=document.createElementNS("http://www.w3.org/2000/svg","g");g.setAttribute("class","cabin");
-  const lbl=document.createElementNS("http://www.w3.org/2000/svg","text");lbl.setAttribute("y",22);lbl.setAttribute("class","seq-label");g.appendChild(lbl);
-  const size=18,pts=[];for(let j=0;j<6;j++){const a=Math.PI/3*j;pts.push((size*Math.cos(a))+","+(size*Math.sin(a)));}
-  const hex=document.createElementNS("http://www.w3.org/2000/svg","polygon");hex.setAttribute("points",pts.join(" "));g.appendChild(hex);
-  const c={id:(i<42?"up-":"down-")+(i%42),fields:{},elGroup:g,elShape:hex,elLabel:lbl};
+  const g=document.createElementNS("http://www.w3.org/2000/svg","g");
+  g.setAttribute("class","cabin");
+
+  // hexagon
+  const size=18,pts=[];
+  for(let j=0;j<6;j++){const a=Math.PI/3*j;pts.push((size*Math.cos(a))+","+(size*Math.sin(a)));}
+  const hex=document.createElementNS("http://www.w3.org/2000/svg","polygon");
+  hex.setAttribute("points",pts.join(" "));
+  g.appendChild(hex);
+
+  // sequence label inside hex
+  const lbl=document.createElementNS("http://www.w3.org/2000/svg","text");
+  lbl.setAttribute("class","seq-label");
+  lbl.setAttribute("text-anchor","middle");
+  lbl.setAttribute("dominant-baseline","middle");
+  g.appendChild(lbl);
+
+  const c={id:(i<42?"up-":"down-")+(i%42),
+           fields:{},elGroup:g,elShape:hex,elLabel:lbl};
   g.addEventListener("dblclick",()=>openModal(c));
-  // sync firebase
+
   db.ref("cabins/"+c.id).on("value",snap=>{
-    if(snap.exists()){c.fields=snap.val();updateCabinColor(c);if(c.fields.sequence)c.elLabel.textContent=c.fields.sequence;}
+    if(snap.exists()){
+      c.fields=snap.val();
+      updateCabinColor(c);
+      if(c.fields.sequence) c.elLabel.textContent=c.fields.sequence;
+      else c.elLabel.textContent="";
+    }
   });
-  cabins.push(c);svg.appendChild(g);
+
+  cabins.push(c);
+  svg.appendChild(g);
 }
-function layoutCabins(){cabins.forEach((c,i)=>{const base=i*ropeLen/totalCabins;const dist=(base+globalOffset+ropeLen)%ropeLen;const pos=pointAt(ropePts,dist);c.elGroup.setAttribute("transform",`translate(${pos.x},${pos.y})`);});}
+function layoutCabins(){
+  cabins.forEach((c,i)=>{
+    const base=i*ropeLen/totalCabins;
+    const dist=(base+globalOffset+ropeLen)%ropeLen;
+    const pos=pointAt(ropePts,dist);
+    c.elGroup.setAttribute("transform",`translate(${pos.x},${pos.y})`);
+  });
+}
 layoutCabins();
 svg.addEventListener("mousedown",e=>{isDragging=true;lastX=e.clientX;});
-svg.addEventListener("mousemove",e=>{if(isDragging){const dx=e.clientX-lastX;globalOffset=(globalOffset+dx+ropeLen)%ropeLen;layoutCabins();lastX=e.clientX;}});
+svg.addEventListener("mousemove",e=>{
+  if(isDragging){
+    const dx=e.clientX-lastX;
+    globalOffset=(globalOffset+dx+ropeLen)%ropeLen;
+    layoutCabins();lastX=e.clientX;
+  }
+});
 svg.addEventListener("mouseup",()=>{isDragging=false;});
 
 // ===== Logic =====
 function updateCabinColor(c){
-  const f = c.fields;
+  const f=c.fields||{};
   c.elShape.setAttribute("fill","white");
   c.elGroup.classList.remove("status-red","status-yellow","status-green");
 
-  if(f.timeLanded && f.timeLanded.trim()!==""){
-    c.elGroup.classList.add("status-green");
-  }
-  else if(f.rescuedBy && f.rescuedBy.trim()!==""){
-    c.elGroup.classList.add("status-yellow");
-  } else {
-    // consider only non-sequence fields
-    const keysToCheck = ["guestName","contactNumber","health","ambulance","rescuedBy","timeReachedTop","remarks"];
-    if(keysToCheck.some(k => f[k] && f[k].trim()!=="")){
-      c.elGroup.classList.add("status-red");
-    }
-  }
+  const guestName = f.guestName&&f.guestName.trim()!=="";
+  const contact   = f.contactNumber&&f.contactNumber.trim()!=="";
+  const health    = f.health&&f.health.trim()!=="";
+  const ambulance = f.ambulance&&f.ambulance.trim()!=="";
+  const rescued   = f.rescuedBy&&f.rescuedBy.trim()!=="";
+  const reached   = f.timeReachedTop&&f.timeReachedTop.trim()!=="";
+  const landed    = f.timeLanded&&f.timeLanded.trim()!=="";
+  const remarks   = f.remarks&&f.remarks.trim()!=="";
 
+  if(landed){
+    c.elGroup.classList.add("status-green");
+  }else if(rescued){
+    c.elGroup.classList.add("status-yellow");
+  }else if(guestName||contact||health||ambulance||reached||remarks){
+    c.elGroup.classList.add("status-red");
+  }
   updateSummary();
 }
-  updateSummary();}
-function updateSummary(){let w=0,l=0;cabins.forEach(c=>{if(c.fields.timeLanded)l++;else if(Object.values(c.fields).some(v=>v && v.trim()!==""))w++;});document.getElementById("waitingCount").textContent=w;document.getElementById("landedCount").textContent=l;}
-function applySequences(){const seq=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);cabins.forEach((c,i)=>{const lb=seq[i]||"";c.elLabel.textContent=lb;c.fields.sequence=lb;db.ref("cabins/"+c.id).update(c.fields);updateCabinColor(c);});}
-function searchCabin(){const val=document.getElementById("searchBox").value.trim().toLowerCase();let found=null;cabins.forEach(c=>{c.elShape.setAttribute("stroke","#333");c.elShape.setAttribute("stroke-width","1");if(c.id.toLowerCase()===val||c.fields.sequence===val)found=c;});if(found){found.elShape.setAttribute("stroke","blue");found.elShape.setAttribute("stroke-width","3");}else alert("Not found");}
-function clearAllData(){if(confirm("Clear ALL?")){db.ref("cabins").remove();cabins.forEach(c=>{c.fields={};c.elLabel.textContent="";c.elShape.setAttribute("fill","white");c.elGroup.classList.remove("status-red","status-yellow","status-green");});updateSummary();}}
+
+function updateSummary(){
+  let w=0,l=0;
+  cabins.forEach(c=>{
+    if(c.fields.timeLanded)l++;
+    else if(c.elGroup.classList.contains("status-red")||c.elGroup.classList.contains("status-yellow"))w++;
+  });
+  document.getElementById("waitingCount").textContent=w;
+  document.getElementById("landedCount").textContent=l;
+}
+function applySequences(){
+  const seq=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);
+  cabins.forEach((c,i)=>{
+    const lb=seq[i]||"";
+    c.elLabel.textContent=lb;
+    c.fields.sequence=lb;
+    db.ref("cabins/"+c.id).update({sequence:lb});
+    updateCabinColor(c);
+  });
+}
+function searchCabin(){
+  const val=document.getElementById("searchBox").value.trim().toLowerCase();
+  let found=null;
+  cabins.forEach(c=>{
+    c.elShape.setAttribute("stroke","#333");
+    c.elShape.setAttribute("stroke-width","1");
+    if(c.id.toLowerCase()===val||c.fields.sequence===val)found=c;
+  });
+  if(found){
+    found.elShape.setAttribute("stroke","blue");
+    found.elShape.setAttribute("stroke-width","3");
+  }else alert("Not found");
+}
+function clearAllData(){
+  if(confirm("Clear ALL?")){
+    db.ref("cabins").remove();
+    cabins.forEach(c=>{
+      c.fields={};c.elLabel.textContent="";
+      c.elShape.setAttribute("fill","white");
+      c.elGroup.classList.remove("status-red","status-yellow","status-green");
+    });
+    updateSummary();
+  }
+}
 
 // ===== Modal =====
 const modal=document.getElementById("formModal"),form=document.getElementById("cabinForm");let currentCabin=null;
-function openModal(c){currentCabin=c;modal.style.display="flex";Array.from(form.elements).forEach(el=>{if(el.name)el.value=c.fields[el.name]||"";});document.getElementById("lastUpdated").textContent=c.fields.updatedAt?"Last updated: "+c.fields.updatedAt:"";updateQR(c);}
+function openModal(c){
+  currentCabin=c;modal.style.display="flex";
+  Array.from(form.elements).forEach(el=>{if(el.name)el.value=c.fields[el.name]||"";});
+  document.getElementById("lastUpdated").textContent=c.fields.updatedAt?"Last updated: "+c.fields.updatedAt:"";
+  updateQR(c);
+}
 function closeModal(){modal.style.display="none";currentCabin=null;}
-form.onsubmit=(e)=>{e.preventDefault();if(!currentCabin)return;Array.from(form.elements).forEach(el=>{if(el.name)currentCabin.fields[el.name]=el.value;});currentCabin.fields.updatedAt=new Date().toLocaleString();db.ref("cabins/"+currentCabin.id).set(currentCabin.fields);updateCabinColor(currentCabin);updateQR(currentCabin);closeModal();}
-function clearForm(){if(!currentCabin)return;currentCabin.fields={};Array.from(form.elements).forEach(el=>{if(el.name)el.value="";});currentCabin.elLabel.textContent="";currentCabin.elShape.setAttribute("fill","white");currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");db.ref("cabins/"+currentCabin.id).remove();updateQR(currentCabin);updateSummary();}
+form.onsubmit=(e)=>{
+  e.preventDefault();if(!currentCabin)return;
+  Array.from(form.elements).forEach(el=>{if(el.name)currentCabin.fields[el.name]=el.value;});
+  currentCabin.fields.updatedAt=new Date().toLocaleString();
+  db.ref("cabins/"+currentCabin.id).set(currentCabin.fields);
+  updateCabinColor(currentCabin);updateQR(currentCabin);closeModal();
+}
+function clearForm(){
+  if(!currentCabin) return;
+  // keep sequence
+  const seq = currentCabin.fields.sequence || "";
+  currentCabin.fields = { sequence: seq };
+
+  Array.from(form.elements).forEach(el=>{
+    if(el.name && el.name!=="sequence") el.value="";
+  });
+
+  currentCabin.elLabel.textContent = seq;
+  currentCabin.elShape.setAttribute("fill","white");
+  currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");
+
+  db.ref("cabins/"+currentCabin.id).set(currentCabin.fields);
+  updateQR(currentCabin);updateSummary();
+}
 
 // ===== QR =====
-function updateQR(c){const url=location.origin+location.pathname+"?id="+encodeURIComponent(c.id);const box=document.getElementById("qrcode");box.innerHTML="";new QRCode(box,{text:url,width:160,height:160});const link=document.createElement("a");link.href=url;link.textContent=url;link.target="_blank";box.appendChild(link);}
-function openCabinFromURL(){const p=new URLSearchParams(window.location.search),id=p.get("id");if(!id)return;const chk=setInterval(()=>{const cab=cabins.find(c=>c.id===id);if(cab){clearInterval(chk);openModal(cab);}},300);}openCabinFromURL();
+function updateQR(c){
+  const url=location.origin+location.pathname+"?id="+encodeURIComponent(c.id);
+  const box=document.getElementById("qrcode");box.innerHTML="";
+  new QRCode(box,{text:url,width:160,height:160});
+  const link=document.createElement("a");link.href=url;link.textContent=url;link.target="_blank";box.appendChild(link);
+}
+function openCabinFromURL(){
+  const p=new URLSearchParams(window.location.search),id=p.get("id");
+  if(!id)return;
+  const chk=setInterval(()=>{
+    const cab=cabins.find(c=>c.id===id);
+    if(cab){clearInterval(chk);openModal(cab);}
+  },300);
+}
+openCabinFromURL();
 </script>
 </body>
-
 </html>
