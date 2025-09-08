@@ -147,10 +147,26 @@ svg.addEventListener("mousemove",e=>{if(isDragging){const dx=e.clientX-lastX;glo
 svg.addEventListener("mouseup",()=>{isDragging=false;});
 
 // ===== Logic =====
-function updateCabinColor(c){const f=c.fields;c.elShape.setAttribute("fill","white");c.elGroup.classList.remove("status-red","status-yellow","status-green");
-  if(f.timeLanded && f.timeLanded.trim()!=="")c.elGroup.classList.add("status-green");
-  else if(f.rescuedBy && f.rescuedBy.trim()!=="")c.elGroup.classList.add("status-yellow");
-  else if(Object.values(f).some(v=>v && v.trim()!==""))c.elGroup.classList.add("status-red");
+function updateCabinColor(c){
+  const f = c.fields;
+  c.elShape.setAttribute("fill","white");
+  c.elGroup.classList.remove("status-red","status-yellow","status-green");
+
+  if(f.timeLanded && f.timeLanded.trim()!==""){
+    c.elGroup.classList.add("status-green");
+  }
+  else if(f.rescuedBy && f.rescuedBy.trim()!==""){
+    c.elGroup.classList.add("status-yellow");
+  } else {
+    // consider only non-sequence fields
+    const keysToCheck = ["guestName","contactNumber","health","ambulance","rescuedBy","timeReachedTop","remarks"];
+    if(keysToCheck.some(k => f[k] && f[k].trim()!=="")){
+      c.elGroup.classList.add("status-red");
+    }
+  }
+
+  updateSummary();
+}
   updateSummary();}
 function updateSummary(){let w=0,l=0;cabins.forEach(c=>{if(c.fields.timeLanded)l++;else if(Object.values(c.fields).some(v=>v && v.trim()!==""))w++;});document.getElementById("waitingCount").textContent=w;document.getElementById("landedCount").textContent=l;}
 function applySequences(){const seq=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);cabins.forEach((c,i)=>{const lb=seq[i]||"";c.elLabel.textContent=lb;c.fields.sequence=lb;db.ref("cabins/"+c.id).update(c.fields);updateCabinColor(c);});}
@@ -169,4 +185,5 @@ function updateQR(c){const url=location.origin+location.pathname+"?id="+encodeUR
 function openCabinFromURL(){const p=new URLSearchParams(window.location.search),id=p.get("id");if(!id)return;const chk=setInterval(()=>{const cab=cabins.find(c=>c.id===id);if(cab){clearInterval(chk);openModal(cab);}},300);}openCabinFromURL();
 </script>
 </body>
+
 </html>
