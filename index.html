@@ -27,7 +27,6 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
 .modal-content button{margin-top:10px;padding:6px 10px;}
 #qrcode{text-align:center;margin-top:10px;}
 #modeLabel{margin-left:10px;font-weight:bold;}
-/* Highlight effect */
 @keyframes pulse{0%{transform:scale(1);}50%{transform:scale(1.5);}100%{transform:scale(1);}}
 @keyframes shake{0%,100%{transform:translate(0,0);}25%{transform:translate(-8px,0);}75%{transform:translate(8px,0);}}
 .cabin-highlight polygon{stroke:gold;stroke-width:6;filter:url(#highlightGlow);animation:pulse 0.6s ease-in-out infinite,shake 0.4s ease-in-out infinite alternate;}
@@ -42,6 +41,7 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
   <button onclick="searchCabin()">Search</button>
   <button onclick="clearAllData()" style="margin-left:8px;color:red;">Clear All</button>
   <button id="exportBtn" style="margin-left:8px;">Export CSV</button>
+  <button id="moveToggleBtn" style="margin-left:8px;">Enable Move</button>
   <label style="margin-left:6px;">Separator:
     <select id="sepSelect"><option value=",">Comma</option><option value=";">Semicolon</option></select>
   </label>
@@ -54,15 +54,16 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
 <svg id="map" viewBox="0 0 2000 700">
   <defs>
     <linearGradient id="gradMountain" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0%" stop-color="#388E3C"/><stop offset="100%" stop-color="#A5D6A7"/>
+      <stop offset="0%" stop-color="#388E3C"/>
+      <stop offset="100%" stop-color="#A5D6A7"/>
     </linearGradient>
     <linearGradient id="gradBay" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#81D4FA"/><stop offset="100%" stop-color="#0288D1"/>
+      <stop offset="0%" stop-color="#81D4FA"/>
+      <stop offset="100%" stop-color="#0288D1"/>
     </linearGradient>
     <filter id="highlightGlow" x="-50%" y="-50%" width="200%" height="200%">
       <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="gold" flood-opacity="1"/>
     </filter>
-    <!-- Tower -->
     <g id="towerSymbol">
       <line x1="-20" y1="0" x2="0" y2="-100" stroke="#444" stroke-width="6"/>
       <line x1="20" y1="0" x2="0" y2="-100" stroke="#444" stroke-width="6"/>
@@ -71,7 +72,6 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
       <rect x="-30" y="-110" width="60" height="12" fill="#999" stroke="#222"/>
       <rect x="-25" y="0" width="50" height="10" fill="#555"/>
     </g>
-    <!-- Station -->
     <g id="stationSymbol">
       <rect x="-50" y="-20" width="100" height="20" fill="#9e9e9e" stroke="#333"/>
       <polygon points="-60,-70 60,-70 40,-20 -40,-20" fill="#bdbdbd" stroke="#222"/>
@@ -82,22 +82,32 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
       <circle cx="0" cy="-100" r="6" fill="#616161" stroke="#222"/>
     </g>
   </defs>
-
   <!-- Summary -->
   <g id="svgSummary" transform="translate(700,0)">
     <rect x="0" y="0" width="600" height="90" rx="12" ry="12" fill="white" stroke="#333"/>
     <text id="waitingText" x="200" y="45" font-size="34" font-weight="bold" text-anchor="middle">Waiting: 0</text>
     <text id="landedText"  x="420" y="45" font-size="34" font-weight="bold" text-anchor="middle">Landed: 0</text>
   </g>
-
   <!-- Legend -->
   <g id="legend" transform="translate(1600,440)">
     <rect x="0" y="0" width="340" height="200" fill="white" stroke="#333"/>
     <text x="170" y="30" font-size="20" font-weight="bold" text-anchor="middle">Cabin Status</text>
-    <g transform="translate(25,60)"><rect width="26" height="26" fill="white" stroke="#333"/><text x="40" y="19" font-size="16">Empty</text></g>
-    <g transform="translate(25,95)"><rect width="26" height="26" fill="red" stroke="#333"/><text x="40" y="19" font-size="16">Waiting</text></g>
-    <g transform="translate(25,130)"><rect width="26" height="26" fill="yellow" stroke="#333"/><text x="40" y="19" font-size="16">Rescued</text></g>
-    <g transform="translate(25,165)"><rect width="26" height="26" fill="lime" stroke="#333"/><text x="40" y="19" font-size="16">Landed</text></g>
+    <g transform="translate(25,60)">
+      <rect width="26" height="26" fill="white" stroke="#333"/>
+      <text x="40" y="19" font-size="16">Empty</text>
+    </g>
+    <g transform="translate(25,95)">
+      <rect width="26" height="26" fill="red" stroke="#333"/>
+      <text x="40" y="19" font-size="16">Waiting</text>
+    </g>
+    <g transform="translate(25,130)">
+      <rect width="26" height="26" fill="yellow" stroke="#333"/>
+      <text x="40" y="19" font-size="16">Rescued</text>
+    </g>
+    <g transform="translate(25,165)">
+      <rect width="26" height="26" fill="lime" stroke="#333"/>
+      <text x="40" y="19" font-size="16">Landed</text>
+    </g>
   </g>
 </svg>
 
@@ -129,9 +139,9 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// Firebase init
+// Firebase Config
 const firebaseConfig = {
-  apiKey: "AIzaSy...YOURKEY...",
+  apiKey: "YOUR-API-KEY",
   authDomain: "rescue-map-cb629.firebaseapp.com",
   databaseURL: "https://rescue-map-cb629-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "rescue-map-cb629",
@@ -143,34 +153,28 @@ const firebaseConfig = {
 const app=initializeApp(firebaseConfig);
 const db=getDatabase(app,firebaseConfig.databaseURL);
 
-// Globals
 const svg=document.getElementById("map");
 let cabins=[],globalOffset=0,cabinMode=84,currentCabin=null;
 
-// === Drawing background, mountain, rope, stations ===
+// Geometry & Rope
 const segments=["TC","T1","T2A","AIAS","T2B","T3","T4","T5","NLS","T6","T7","NP"];
 const slots=[2,2,2,2,10,6,5,1,2,7,3];
 const startX=100,endX=1900,unit=(endX-startX)/42;
 const baseY=600,topY=300,npY=340;
-let x=startX;const xCoords=[x];for(let i=0;i<slots.length;i++){x+=slots[i]*unit;xCoords.push(x);}
+let x=startX;const xCoords=[x];
+for(let i=0;i<slots.length;i++){x+=slots[i]*unit;xCoords.push(x);}
 const t2bX=xCoords[4],t3X=xCoords[5],nlsX=xCoords[8],npX=xCoords[11];
-// City & Sea
 function rect(x,y,w,h,cls){const r=document.createElementNS("http://www.w3.org/2000/svg","rect");r.setAttribute("x",x);r.setAttribute("y",y);r.setAttribute("width",w);r.setAttribute("height",h);r.setAttribute("class",cls);svg.insertBefore(r,svg.firstChild);}
 rect(xCoords[0],baseY,t2bX-xCoords[0],100,"city");
 rect(t2bX,baseY,t3X-t2bX,100,"sea");
-// Mountain
 const mountain=document.createElementNS("http://www.w3.org/2000/svg","path");
 mountain.setAttribute("d",`M${t3X},${baseY} L${nlsX},${topY} L${npX},${npY} L${npX},700 L${t3X},700 Z`);
 mountain.setAttribute("class","mountain");svg.insertBefore(mountain,svg.firstChild);
-// Stations + Towers
 let groundPts=[];
 segments.forEach((s,i)=>{let gx=xCoords[i],gy=baseY;
-  if(s==="NLS")gy=topY;
-  else if(s==="NP")gy=npY;
-  else if(s==="T3"||(i>5&&i<segments.indexOf("NLS")))
-    gy=baseY-(baseY-topY)*((gx-t3X)/(nlsX-t3X));
-  else if(i>segments.indexOf("NLS"))
-    gy=topY+(npY-topY)*((gx-nlsX)/(npX-nlsX));
+  if(s==="NLS")gy=topY;else if(s==="NP")gy=npY;
+  else if(s==="T3"||(i>5&&i<segments.indexOf("NLS")))gy=baseY-(baseY-topY)*((gx-t3X)/(nlsX-t3X));
+  else if(i>segments.indexOf("NLS"))gy=topY+(npY-topY)*((gx-nlsX)/(npX-nlsX));
   groundPts.push([gx,gy]);
   const u=document.createElementNS("http://www.w3.org/2000/svg","use");
   u.setAttribute("href",["TC","AIAS","NLS","NP"].includes(s)?"#stationSymbol":"#towerSymbol");
@@ -178,25 +182,31 @@ segments.forEach((s,i)=>{let gx=xCoords[i],gy=baseY;
   const t=document.createElementNS("http://www.w3.org/2000/svg","text");
   t.textContent=s;t.setAttribute("x",gx);t.setAttribute("y",gy+25);t.setAttribute("text-anchor","middle");t.setAttribute("class","label");svg.appendChild(t);
 });
-// Rope
 function lengthOf(pts){let L=0;for(let i=0;i<pts.length-1;i++){L+=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]);}return L;}
 function pointAt(pts,d){let sum=0;for(let i=0;i<pts.length-1;i++){const[x1,y1]=pts[i],[x2,y2]=pts[i+1];const seg=Math.hypot(x2-x1,y2-y1);if(sum+seg>=d){const t=(d-sum)/seg;return{x:x1+(x2-x1)*t,y:y1+(y2-y1)*t};}sum+=seg;}return{x:pts.at(-1)[0],y:pts.at(-1)[1]};}
-const offset=60;
-const up=groundPts.map(p=>[p[0],p[1]-offset]);
-const down=groundPts.map(p=>[p[0],p[1]+offset]).reverse();
+const up=groundPts.map(p=>[p[0],p[1]-60]);
+const down=groundPts.map(p=>[p[0],p[1]+60]).reverse();
 const ropePts=[...up,...down,[up[0][0],up[0][1]]];
 const rope=document.createElementNS("http://www.w3.org/2000/svg","polyline");
-rope.setAttribute("points",ropePts.map(p=>p.join(",")).join(" "));
-rope.setAttribute("class","rope");svg.appendChild(rope);
+rope.setAttribute("points",ropePts.map(p=>p.join(",")).join(" "));rope.setAttribute("class","rope");svg.appendChild(rope);
+const ropeHit=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+ropeHit.setAttribute("points",rope.getAttribute("points"));
+ropeHit.setAttribute("stroke","transparent");
+ropeHit.setAttribute("stroke-width","30");
+ropeHit.setAttribute("fill","none");
+ropeHit.style.cursor="default";
+ropeHit.style.pointerEvents="all";
+svg.appendChild(ropeHit);
 const ropeLen=lengthOf(ropePts);
 
-// === Cabins ===
+// Cabins
 function buildCabins(){
   cabins.forEach(c=>{if(c.elGroup)svg.removeChild(c.elGroup)});
   cabins=[];
   const total=cabinMode,size=cabinMode===109?14:18;
   for(let i=0;i<total;i++){
-    const g=document.createElementNS("http://www.w3.org/2000/svg","g");g.setAttribute("class","cabin");
+    const g=document.createElementNS("http://www.w3.org/2000/svg","g");
+    g.setAttribute("class","cabin");
     const pts=[];for(let j=0;j<6;j++){const a=Math.PI/3*j;pts.push((size*Math.cos(a))+","+(size*Math.sin(a)));}
     const hex=document.createElementNS("http://www.w3.org/2000/svg","polygon");
     hex.setAttribute("points",pts.join(" "));g.appendChild(hex);
@@ -208,45 +218,130 @@ function buildCabins(){
   }
   layoutCabins();updateSummary();
 }
-function layoutCabins(){cabins.forEach((c,i)=>{const d=(i*ropeLen/cabins.length+globalOffset)%ropeLen;const pos=pointAt(ropePts,d);c.elGroup.setAttribute("transform",`translate(${pos.x},${pos.y})`);});}
-function updateSummary(){let waiting=0,landed=0;cabins.forEach(c=>{if(c.elGroup.classList.contains("status-green"))landed++;else if(c.elGroup.classList.contains("status-red")||c.elGroup.classList.contains("status-yellow"))waiting++;});document.getElementById("waitingText").textContent="Waiting: "+waiting;document.getElementById("landedText").textContent="Landed: "+landed;}
+function layoutCabins(){
+  cabins.forEach((c,i)=>{
+    const d=(i*ropeLen/cabins.length+globalOffset)%ropeLen;
+    const pos=pointAt(ropePts,d);
+    c.elGroup.setAttribute("transform",`translate(${pos.x},${pos.y})`);
+  });
+}
+function updateSummary(){
+  let waiting=0,landed=0;
+  cabins.forEach(c=>{
+    if(c.elGroup.classList.contains("status-green"))landed++;
+    else if(c.elGroup.classList.contains("status-red")||c.elGroup.classList.contains("status-yellow"))waiting++;
+  });
+  document.getElementById("waitingText").textContent="Waiting: "+waiting;
+  document.getElementById("landedText").textContent="Landed: "+landed;
+}
 buildCabins();
 
-// === Modal ===
+// Modal
 const modal=document.getElementById("formModal"),form=document.getElementById("cabinForm");
 function openModal(c){currentCabin=c;modal.style.display="flex";form.reset();for(const k in c.fields){if(form.elements[k])form.elements[k].value=c.fields[k];}generateQRCode();}
 function closeModal(){modal.style.display="none";currentCabin=null;document.getElementById("qrcode").innerHTML="";}
 function clearForm(){if(!currentCabin)return;const seq=currentCabin.fields.sequence||"";currentCabin.fields={sequence:seq};currentCabin.elLabel.textContent=seq;currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");closeModal();updateSummary();}
-form.onsubmit=e=>{e.preventDefault();if(!currentCabin)return;for(const el of form.elements){if(el.name)currentCabin.fields[el.name]=el.value;}currentCabin.elLabel.textContent=currentCabin.fields.sequence||"";currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");if(currentCabin.fields.timeLanded)currentCabin.elGroup.classList.add("status-green");else if(currentCabin.fields.rescuedBy)currentCabin.elGroup.classList.add("status-yellow");else if(currentCabin.fields.guestName)currentCabin.elGroup.classList.add("status-red");updateSummary();set(ref(db,'cabins/'+currentCabin.id),currentCabin.fields);generateQRCode();closeModal();};
+form.onsubmit=e=>{
+  e.preventDefault();if(!currentCabin)return;
+  for(const el of form.elements){if(el.name)currentCabin.fields[el.name]=el.value;}
+  currentCabin.elLabel.textContent=currentCabin.fields.sequence||"";
+  currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");
+  if(currentCabin.fields.timeLanded)currentCabin.elGroup.classList.add("status-green");
+  else if(currentCabin.fields.rescuedBy)currentCabin.elGroup.classList.add("status-yellow");
+  else if(currentCabin.fields.guestName)currentCabin.elGroup.classList.add("status-red");
+  updateSummary();
+  set(ref(db,'cabins/'+currentCabin.id),currentCabin.fields);
+  generateQRCode();
+  closeModal();
+};
 function printCabin(){if(!currentCabin)return;window.print();}
 function generateQRCode(){document.getElementById("qrcode").innerHTML="";if(currentCabin){new QRCode(document.getElementById("qrcode"),JSON.stringify(currentCabin.fields,null,2));}}
 
-// === Apply / Clear / CSV ===
-function applySequences(){const arr=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);cabins.forEach((c,i)=>{const v=arr[i]||"";c.fields.sequence=v;c.elLabel.textContent=v;});updateSummary();saveAllToFirebase();}
+// Apply / Clear
+function applySequences(){
+  const arr=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);
+  cabins.forEach((c,i)=>{const v=arr[i]||"";c.fields.sequence=v;c.elLabel.textContent=v;});
+  updateSummary();saveAllToFirebase();
+}
 function saveAllToFirebase(){const data={};cabins.forEach(c=>{data[c.id]=c.fields});set(ref(db,'cabins'),data);}
 function clearAllData(){cabins.forEach(c=>{c.fields={};c.elLabel.textContent="";c.elGroup.classList.remove("status-red","status-yellow","status-green");});updateSummary();}
-document.getElementById("exportBtn").addEventListener("click",()=>{const sep=document.getElementById("sepSelect").value;const header=["Cabin Number","Passenger","Contact","Health","Ambulance","Rescued By","Reached Top","Landed","Remarks","Status"];const rows=cabins.map(c=>{let st="Empty";if(c.elGroup.classList.contains("status-green"))st="Landed";else if(c.elGroup.classList.contains("status-yellow"))st="Rescued";else if(c.elGroup.classList.contains("status-red"))st="Waiting";return [c.fields.sequence||"",c.fields.guestName||"",c.fields.contactNumber||"",c.fields.health||"",c.fields.ambulance||"",c.fields.rescuedBy||"",c.fields.timeReachedTop||"",c.fields.timeLanded||"",c.fields.remarks||"",st].join(sep)});const csv=[header.join(sep),...rows].join("\n");const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="cabins.csv";a.click();});
 
-// === Search ===
-function searchCabin(){const val=document.getElementById("searchBox").value.trim();let found=null;cabins.forEach(c=>c.elGroup.classList.remove("cabin-highlight"));cabins.forEach(c=>{if(c.fields.sequence===val)found=c;});if(found){found.elGroup.classList.add("cabin-highlight");setTimeout(()=>found.elGroup.classList.remove("cabin-highlight"),4000);}else alert("Cabin not found");}
+// Auto-sync typing
+document.getElementById("seqInput").addEventListener("input", ()=>applySequences());
 
-// === Rope drag sync ===
+// Search
+function searchCabin(){
+  const val=document.getElementById("searchBox").value.trim();
+  let found=null;
+  cabins.forEach(c=>c.elGroup.classList.remove("cabin-highlight"));
+  cabins.forEach(c=>{if(c.fields.sequence===val)found=c;});
+  if(found){found.elGroup.classList.add("cabin-highlight");setTimeout(()=>found.elGroup.classList.remove("cabin-highlight"),4000);}
+  else alert("Cabin not found");
+}
+
+// Rope Drag Toggle
+let ropeMovable=false;
+document.getElementById("moveToggleBtn").addEventListener("click",()=>{
+  ropeMovable=!ropeMovable;
+  document.getElementById("moveToggleBtn").textContent=ropeMovable?"Disable Move":"Enable Move";
+  ropeHit.style.cursor=ropeMovable?"grab":"default";
+});
 let dragging=false,lastX=0;
-svg.addEventListener("mousedown",e=>{dragging=true;lastX=e.clientX;});
-svg.addEventListener("mousemove",e=>{if(dragging){globalOffset=(globalOffset+(e.clientX-lastX)+ropeLen)%ropeLen;layoutCabins();lastX=e.clientX;set(ref(db,'globalOffset'),globalOffset);}});
-svg.addEventListener("mouseup",()=>dragging=false);
-svg.addEventListener("mouseleave",()=>dragging=false);
-onValue(ref(db,'globalOffset'),snap=>{if(snap.exists()){const val=snap.val()%ropeLen;if(val!==globalOffset){globalOffset=val;layoutCabins();}}});
+function startDrag(e){if(!ropeMovable)return;dragging=true;lastX=(e.touches?e.touches[0].clientX:e.clientX);ropeHit.style.cursor="grabbing";e.preventDefault();}
+function duringDrag(e){if(!dragging||!ropeMovable)return;const x=(e.touches?e.touches[0].clientX:e.clientX);const dx=x-lastX;lastX=x;globalOffset=(globalOffset+dx)%ropeLen;if(globalOffset<0)globalOffset+=ropeLen;layoutCabins();set(ref(db,"globalOffset"),globalOffset);}
+function endDrag(){if(!dragging)return;dragging=false;ropeHit.style.cursor="grab";}
+ropeHit.addEventListener("mousedown",startDrag);
+window.addEventListener("mousemove",duringDrag);
+window.addEventListener("mouseup",endDrag);
+ropeHit.addEventListener("touchstart",startDrag,{passive:false});
+window.addEventListener("touchmove",duringDrag,{passive:false});
+window.addEventListener("touchend",endDrag);
+onValue(ref(db,"globalOffset"),snap=>{if(snap.exists()){const val=snap.val()%ropeLen;if(val!==globalOffset){globalOffset=val;layoutCabins();}}});
 
-// === Toggle cabins sync ===
+// Mode Toggle
 function updateModeUI(){document.getElementById("toggleBtn").textContent=(cabinMode===84?"Switch to 109 Cabins":"Switch to 84 Cabins");document.getElementById("modeLabel").textContent="Mode: "+cabinMode+" cabins";}
-document.getElementById("toggleBtn").addEventListener("click",()=>{cabinMode=(cabinMode===84?109:84);buildCabins();updateModeUI();set(ref(db,'cabinMode'), cabinMode);});
-onValue(ref(db,'cabinMode'),snap=>{if(snap.exists()&&snap.val()!==cabinMode){cabinMode=snap.val();buildCabins();updateModeUI();}});
+document.getElementById("toggleBtn").addEventListener("click",()=>{cabinMode=(cabinMode===84?109:84);buildCabins();updateModeUI();set(ref(db,"cabinMode"),cabinMode);});
+onValue(ref(db,"cabinMode"),snap=>{if(snap.exists()&&snap.val()!==cabinMode){cabinMode=snap.val();buildCabins();updateModeUI();}});
 
-// === Cabin realtime sync ===
-onValue(ref(db,'cabins'),snap=>{if(snap.exists()){const data=snap.val();cabins.forEach(c=>{if(data[c.id]){c.fields=data[c.id];c.elLabel.textContent=c.fields.sequence||"";c.elGroup.classList.remove("status-red","status-yellow","status-green");if(c.fields.timeLanded)c.elGroup.classList.add("status-green");else if(c.fields.rescuedBy)c.elGroup.classList.add("status-yellow");else if(c.fields.guestName)c.elGroup.classList.add("status-red");}});updateSummary();}});
+// Cabins realtime sync
+onValue(ref(db,"cabins"),snap=>{
+  if(snap.exists()){
+    const data=snap.val();
+    cabins.forEach(c=>{
+      if(data[c.id]){
+        c.fields=data[c.id];
+        c.elLabel.textContent=c.fields.sequence||"";
+        c.elGroup.classList.remove("status-red","status-yellow","status-green");
+        if(c.fields.timeLanded)c.elGroup.classList.add("status-green");
+        else if(c.fields.rescuedBy)c.elGroup.classList.add("status-yellow");
+        else if(c.fields.guestName)c.elGroup.classList.add("status-red");
+      }
+    });
+    updateSummary();
+    const arr=cabins.map(c=>c.fields.sequence||"");
+    document.getElementById("seqInput").value=arr.join(" ");
+  }
+});
 
-// === Expose functions for buttons ===
+// Export CSV
+document.getElementById("exportBtn").addEventListener("click",()=>{
+  const sep=document.getElementById("sepSelect").value;
+  const header=["Cabin Number","Passenger","Contact","Health","Ambulance","Rescued By","Reached Top","Landed","Remarks","Status"];
+  const rows=cabins.map(c=>{
+    let st="Empty";
+    if(c.elGroup.classList.contains("status-green"))st="Landed";
+    else if(c.elGroup.classList.contains("status-yellow"))st="Rescued";
+    else if(c.elGroup.classList.contains("status-red"))st="Waiting";
+    return [c.fields.sequence||"",c.fields.guestName||"",c.fields.contactNumber||"",c.fields.health||"",c.fields.ambulance||"",c.fields.rescuedBy||"",c.fields.timeReachedTop||"",c.fields.timeLanded||"",c.fields.remarks||"",st].join(sep);
+  });
+  const csv=[header.join(sep),...rows].join("\n");
+  const blob=new Blob([csv],{type:"text/csv"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="cabins.csv";a.click();
+});
+
+// Export global functions
 window.applySequences=applySequences;
 window.searchCabin=searchCabin;
 window.clearAllData=clearAllData;
