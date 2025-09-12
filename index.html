@@ -125,10 +125,16 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// === Firebase Config (replace!) ===
+// ==== Firebase Config (your real project) ====
 const firebaseConfig = {
-  apiKey: "YOUR-API-KEY",authDomain: "YOUR-PROJECT.firebaseapp.com",databaseURL: "https://YOUR-PROJECT.firebaseio.com",
-  projectId: "YOUR-PROJECT",storageBucket: "YOUR-PROJECT.appspot.com",messagingSenderId: "SENDER-ID",appId: "APP-ID"
+  apiKey: "AIzaSyBShQZMBHu1dNGw81tvI3t5IVQtNOYVbR4",
+  authDomain: "rescue-map-cb629.firebaseapp.com",
+  databaseURL: "https://rescue-map-cb629-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "rescue-map-cb629",
+  storageBucket: "rescue-map-cb629.appspot.com",
+  messagingSenderId: "1047215320171",
+  appId: "1:1047215320171:web:ec96b70002c55bb94a552e",
+  measurementId: "G-8BY9K2T845"
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -137,7 +143,7 @@ const db = getDatabase(app);
 const svg=document.getElementById("map");
 let cabins=[],globalOffset=0,cabinMode=84,currentCabin=null;
 
-// === Route geometry ===
+// Route anchors
 const segments=["TC","T1","T2A","AIAS","T2B","T3","T4","T5","NLS","T6","T7","NP"];
 const slots=[2,2,2,2,10,6,5,1,2,7,3];
 const startX=100,endX=1900,unit=(endX-startX)/42;
@@ -146,7 +152,10 @@ let x=startX,xCoords=[x];for(let i=0;i<slots.length;i++){x+=slots[i]*unit;xCoord
 const t2bX=xCoords[4],t3X=xCoords[5],nlsX=xCoords[8],npX=xCoords[11];
 
 // Backgrounds
-function rect(x,y,w,h,cls){const r=document.createElementNS("http://www.w3.org/2000/svg","rect");r.setAttribute("x",x);r.setAttribute("y",y);r.setAttribute("width",w);r.setAttribute("height",h);r.setAttribute("class",cls);svg.insertBefore(r,svg.firstChild);}
+function rect(x,y,w,h,cls){
+  const r=document.createElementNS("http://www.w3.org/2000/svg","rect");
+  r.setAttribute("x",x);r.setAttribute("y",y);r.setAttribute("width",w);r.setAttribute("height",h);
+  r.setAttribute("class",cls);svg.insertBefore(r,svg.firstChild);}
 rect(xCoords[0],baseY,t2bX-xCoords[0],100,"city");
 rect(t2bX,baseY,t3X-t2bX,100,"sea");
 const mountain=document.createElementNS("http://www.w3.org/2000/svg","path");
@@ -157,7 +166,8 @@ mountain.setAttribute("class","mountain");svg.insertBefore(mountain,svg.firstChi
 let groundPts=[];
 segments.forEach((s,i)=>{
   let gx=xCoords[i],gy=baseY;
-  if(s==="NLS")gy=topY; else if(s==="NP")gy=npY;
+  if(s==="NLS")gy=topY;
+  else if(s==="NP")gy=npY;
   else if(s==="T3"||(i>5&&i<segments.indexOf("NLS")))
     gy=baseY-(baseY-topY)*((gx-t3X)/(nlsX-t3X));
   else if(i>segments.indexOf("NLS"))
@@ -170,24 +180,9 @@ segments.forEach((s,i)=>{
   t.textContent=s;t.setAttribute("x",gx);t.setAttribute("y",gy+25);t.setAttribute("text-anchor","middle");t.setAttribute("class","label");svg.appendChild(t);
 });
 
-// Rope helpers
-function lengthOf(pts){
-  let L=0;
-  for(let i=0;i<pts.length-1;i++){
-    L+=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]);
-  }
-  return L;
-}
-function pointAt(pts,d){
-  let sum=0;
-  for(let i=0;i<pts.length-1;i++){
-    const[x1,y1]=pts[i],[x2,y2]=pts[i+1];
-    const seg=Math.hypot(x2-x1,y2-y1);
-    if(sum+seg>=d){const t=(d-sum)/seg;return{x:x1+(x2-x1)*t,y:y1+(y2-y1)*t};}
-    sum+=seg;
-  }
-  return{x:pts[pts.length-1][0],y:pts[pts.length-1][1]};
-}
+// Rope
+function lengthOf(pts){let L=0;for(let i=0;i<pts.length-1;i++){L+=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]);}return L;}
+function pointAt(pts,d){let sum=0;for(let i=0;i<pts.length-1;i++){const[x1,y1]=pts[i],[x2,y2]=pts[i+1];const seg=Math.hypot(x2-x1,y2-y1);if(sum+seg>=d){const t=(d-sum)/seg;return{x:x1+(x2-x1)*t,y:y1+(y2-y1)*t};}sum+=seg;}return{x:pts[pts.length-1][0],y:pts[pts.length-1][1]};}
 const offset=60;
 const up=groundPts.map(p=>[p[0],p[1]-offset]);
 const down=groundPts.map(p=>[p[0],p[1]+offset]).reverse();
@@ -204,8 +199,10 @@ function buildCabins(){
   for(let i=0;i<total;i++){
     const g=document.createElementNS("http://www.w3.org/2000/svg","g");g.setAttribute("class","cabin");
     const pts=[];for(let j=0;j<6;j++){const a=Math.PI/3*j;pts.push((size*Math.cos(a))+","+(size*Math.sin(a)));}
-    const hex=document.createElementNS("http://www.w3.org/2000/svg","polygon");hex.setAttribute("points",pts.join(" "));g.appendChild(hex);
-    const lbl=document.createElementNS("http://www.w3.org/2000/svg","text");lbl.setAttribute("class","seq-label");lbl.setAttribute("y","5");g.appendChild(lbl);
+    const hex=document.createElementNS("http://www.w3.org/2000/svg","polygon");
+    hex.setAttribute("points",pts.join(" "));g.appendChild(hex);
+    const lbl=document.createElementNS("http://www.w3.org/2000/svg","text");
+    lbl.setAttribute("class","seq-label");lbl.setAttribute("y","5");g.appendChild(lbl);
     const c={id:"cabin-"+i,fields:{},elGroup:g,elShape:hex,elLabel:lbl};
     g.addEventListener("dblclick",()=>openModal(c));
     cabins.push(c);svg.appendChild(g);
@@ -245,9 +242,9 @@ document.getElementById("toggleBtn").addEventListener("click",()=>{if(cabinMode=
 // CSV
 document.getElementById("exportBtn").addEventListener("click",()=>{const sep=document.getElementById("sepSelect").value;const header=["Cabin Number","Passenger","Contact","Health","Ambulance","Rescued By","Reached Top","Landed","Remarks","Status"];const rows=cabins.map(c=>{let st="Empty";if(c.elGroup.classList.contains("status-green"))st="Landed";else if(c.elGroup.classList.contains("status-yellow"))st="Rescued";else if(c.elGroup.classList.contains("status-red"))st="Waiting";return [c.fields.sequence||"",c.fields.guestName||"",c.fields.contactNumber||"",c.fields.health||"",c.fields.ambulance||"",c.fields.rescuedBy||"",c.fields.timeReachedTop||"",c.fields.timeLanded||"",c.fields.remarks||"",st].join(sep)});const csv=[header.join(sep),...rows].join("\n");const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="cabins.csv";a.click();});
 
-// Real-time Firebase
-const cabinsRef = ref(db,'cabins');
-onValue(cabinsRef,(snap)=>{if(snap.exists()){const data=snap.val();cabins.forEach(c=>{if(data[c.id]){c.fields=data[c.id];c.elLabel.textContent=c.fields.sequence||"";c.elGroup.classList.remove("status-red","status-yellow","status-green");if(c.fields.timeLanded)c.elGroup.classList.add("status-green");else if(c.fields.rescuedBy)c.elGroup.classList.add("status-yellow");else if(c.fields.guestName)c.elGroup.classList.add("status-red");}});updateSummary();}});
+// Real-time Firebase listener
+const cabinsRef=ref(db,'cabins');
+onValue(cabinsRef,(snap)=>{console.log("Realtime update:",snap.val());if(snap.exists()){const data=snap.val();cabins.forEach(c=>{if(data[c.id]){c.fields=data[c.id];c.elLabel.textContent=c.fields.sequence||"";c.elGroup.classList.remove("status-red","status-yellow","status-green");if(c.fields.timeLanded)c.elGroup.classList.add("status-green");else if(c.fields.rescuedBy)c.elGroup.classList.add("status-yellow");else if(c.fields.guestName)c.elGroup.classList.add("status-red");}});updateSummary();}});
 
 // Expose globals
 window.applySequences=applySequences;
