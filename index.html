@@ -110,6 +110,7 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
     </g>
   </g>
 </svg>
+  <div id="qrDisplay" style="margin:15px;text-align:center;"></div>
 
 <!-- Modal -->
 <div class="modal" id="formModal">
@@ -239,7 +240,11 @@ buildCabins();
 // Modal
 const modal=document.getElementById("formModal"),form=document.getElementById("cabinForm");
 function openModal(c){currentCabin=c;modal.style.display="flex";form.reset();for(const k in c.fields){if(form.elements[k])form.elements[k].value=c.fields[k];}generateQRCode();}
-function closeModal(){modal.style.display="none";currentCabin=null;document.getElementById("qrcode").innerHTML="";}
+function closeModal(){
+  modal.style.display="none";
+  currentCabin=null;
+  // do NOT clear #qrcode or #qrDisplay here
+}
 function clearForm(){if(!currentCabin)return;const seq=currentCabin.fields.sequence||"";currentCabin.fields={sequence:seq};currentCabin.elLabel.textContent=seq;currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");closeModal();updateSummary();}
 form.onsubmit=e=>{
   e.preventDefault();if(!currentCabin)return;
@@ -255,7 +260,19 @@ form.onsubmit=e=>{
   closeModal();
 };
 function printCabin(){if(!currentCabin)return;window.print();}
-function generateQRCode(){document.getElementById("qrcode").innerHTML="";if(currentCabin){new QRCode(document.getElementById("qrcode"),JSON.stringify(currentCabin.fields,null,2));}}
+function generateQRCode(){
+  // modal preview
+  const modalTarget = document.getElementById("qrcode");
+  modalTarget.innerHTML="";
+  if(currentCabin){
+    new QRCode(modalTarget, JSON.stringify(currentCabin.fields,null,2));
+  }
+
+  // persistent display outside modal
+  const display=document.getElementById("qrDisplay");
+  display.innerHTML=`<h3>QR for Cabin ${currentCabin?.fields.sequence||""}</h3>`;
+  new QRCode(display, JSON.stringify(currentCabin.fields,null,2));
+}
 
 // Apply / Clear
 function applySequences(){
@@ -350,4 +367,5 @@ window.clearForm=clearForm;
 window.printCabin=printCabin;
 </script>
 </body>
+
 </html>
