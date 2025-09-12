@@ -3,64 +3,107 @@
 <head>
 <meta charset="UTF-8">
 <title>Ngong Ping 360 – Rescue Map</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  body{margin:0;font-family:sans-serif;}
-  #controls{padding:10px;background:#eee;}
-  #seqInput{width:100%;height:60px;}
-  #summary{margin-top:8px;padding:6px;background:#fff;border:1px solid #333;display:inline-block;border-radius:4px;}
-  svg{width:100%;height:700px;display:block;background:#e0f7fa;}
-  .mountain{fill:#6fbf73;}
-  .rope{fill:none;stroke:#444;stroke-width:3;}
-  .station{fill:#fff;stroke:#333;stroke-width:2;}
-  .label{font-size:16px;font-weight:bold;text-anchor:middle;}
-  .mast{stroke:#333;stroke-width:2;}
-  .cabin{cursor:pointer;}
-  .cabin polygon{fill:#fff;stroke:#333;}
-  .status-red polygon{fill:red;}
-  .status-yellow polygon{fill:yellow;}
-  .status-green polygon{fill:lime;}
-  .seq-label{
-    font-size:12px;
-    font-weight:bold;
-    fill:black;
-    text-anchor:middle;
-    dominant-baseline:middle;
-    pointer-events:none;
-  }
-  .modal{position:fixed;top:0;left:0;width:100%;height:100%;
-    background:rgba(0,0,0,0.5);display:none;
-    align-items:center;justify-content:center;z-index:3;}
-  .modal-content{background:#fff;padding:20px;max-width:400px;width:90%;
-    border-radius:5px;font-size:14px;}
-  .modal-content label{display:block;margin-top:6px;}
-  .modal-content input,.modal-content textarea{width:100%;padding:5px;margin-top:2px;}
-  .modal-content button{margin-top:10px;padding:6px 10px;}
-  #qrcode{text-align:center;margin-top:10px;}
-  #qrcode a{display:block;margin-top:6px;font-size:12px;word-break:break-all;}
-  .last-updated{font-size:11px;color:#555;margin-top:5px;}
+body{margin:0;font-family:sans-serif;}
+#controls{padding:10px;background:#eee;font-size:14px;}
+#seqInput{width:100%;height:60px;}
+svg{width:100%;height:700px;display:block;background:#e0f7fa;}
+.city{fill:#ccc;opacity:0.6;stroke:#999;stroke-dasharray:6;}
+.sea{fill:url(#gradBay);opacity:0.7;}
+.mountain{fill:url(#gradMountain);}
+.rope{fill:none;stroke:#444;stroke-width:3;}
+.label{font-weight:bold;fill:#111;}
+.cabin{cursor:pointer;}
+.cabin polygon{fill:#fff;stroke:#333;}
+.status-red polygon{fill:red;}
+.status-yellow polygon{fill:yellow;}
+.status-green polygon{fill:lime;}
+.seq-label{font-size:12px;font-weight:bold;fill:black;text-anchor:middle;dominant-baseline:middle;}
+.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:3;}
+.modal-content{background:#fff;padding:20px;max-width:400px;width:90%;border-radius:5px;font-size:14px;}
+.modal-content label{display:block;margin-top:6px;}
+.modal-content input,.modal-content textarea{width:100%;padding:5px;margin-top:2px;}
+.modal-content button{margin-top:10px;padding:6px 10px;}
+#qrcode{text-align:center;margin-top:10px;}
+#modeLabel{margin-left:10px;font-weight:bold;}
 </style>
 </head>
 <body>
 
 <div id="controls">
-  <textarea id="seqInput" placeholder="Enter sequence numbers (comma separated)"></textarea><br>
-  <button onclick="applySequences()">Apply Sequences</button>
-  <div id="summary">Waiting: <span id="waitingCount">0</span> | Landed: <span id="landedCount">0</span></div>
+  <textarea id="seqInput" placeholder="Enter cabin numbers (comma or space separated)"></textarea><br>
+  <button onclick="applySequences()">Apply Cabin Numbers</button>
+  <input type="text" id="searchBox" placeholder="Search cabin…" style="margin-left:8px;">
+  <button onclick="searchCabin()">Search</button>
+  <button onclick="clearAllData()" style="margin-left:8px;color:red;">Clear All</button>
+  <button id="exportBtn" style="margin-left:8px;">Export CSV</button>
+  <label style="margin-left:6px;">Separator:
+    <select id="sepSelect"><option value=",">Comma</option><option value=";">Semicolon</option></select>
+  </label>
   <div style="margin-top:8px;">
-    <input type="text" id="searchBox" placeholder="Search cabin…">
-    <button onclick="searchCabin()">Search</button>
-    <button onclick="clearAllData()" style="margin-left:8px;color:red;">Clear All</button>
+    <button id="toggleBtn">Switch to 109 Cabins</button>
+    <span id="modeLabel">Mode: 84 cabins</span>
   </div>
 </div>
 
-<svg id="map" viewBox="0 0 2000 700"></svg>
+<svg id="map" viewBox="0 0 2000 700">
+  <defs>
+    <linearGradient id="gradMountain" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#388E3C"/><stop offset="100%" stop-color="#A5D6A7"/>
+    </linearGradient>
+    <linearGradient id="gradBay" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#81D4FA"/><stop offset="100%" stop-color="#0288D1"/>
+    </linearGradient>
+    <filter id="highlightGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="deepskyblue" flood-opacity="0.9"/>
+    </filter>
+    <!-- Tower -->
+    <g id="towerSymbol">
+      <line x1="-20" y1="0" x2="0" y2="-100" stroke="#444" stroke-width="6"/>
+      <line x1="20" y1="0" x2="0" y2="-100" stroke="#444" stroke-width="6"/>
+      <line x1="-15" y1="-30" x2="15" y2="-30" stroke="#444" stroke-width="4"/>
+      <line x1="-10" y1="-60" x2="10" y2="-60" stroke="#444" stroke-width="3"/>
+      <rect x="-30" y="-110" width="60" height="12" fill="#999" stroke="#222"/>
+      <rect x="-25" y="0" width="50" height="10" fill="#555"/>
+    </g>
+    <!-- Station -->
+    <g id="stationSymbol">
+      <rect x="-50" y="-20" width="100" height="20" fill="#9e9e9e" stroke="#333"/>
+      <polygon points="-60,-70 60,-70 40,-20 -40,-20" fill="#bdbdbd" stroke="#222"/>
+      <rect x="-35" y="-55" width="15" height="20" fill="#eee" stroke="#222"/>
+      <rect x="-7" y="-55" width="15" height="20" fill="#eee" stroke="#222"/>
+      <rect x="21" y="-55" width="15" height="20" fill="#eee" stroke="#222"/>
+      <line x1="0" y1="-70" x2="0" y2="-100" stroke="#757575" stroke-width="3"/>
+      <circle cx="0" cy="-100" r="6" fill="#616161" stroke="#222"/>
+    </g>
+  </defs>
 
+  <!-- Summary -->
+  <g id="svgSummary" transform="translate(700,0)">
+    <rect x="0" y="0" width="600" height="90" rx="12" ry="12" fill="white" stroke="#333"/>
+    <text id="waitingText" x="200" y="45" font-size="34" font-weight="bold" text-anchor="middle">Waiting: 0</text>
+    <text id="landedText"  x="420" y="45" font-size="34" font-weight="bold" text-anchor="middle">Landed: 0</text>
+  </g>
+
+  <!-- Legend -->
+  <g id="legend" transform="translate(1600,440)">
+    <rect x="0" y="0" width="340" height="200" fill="white" stroke="#333"/>
+    <text x="170" y="30" font-size="20" font-weight="bold" text-anchor="middle">Cabin Status</text>
+    <g transform="translate(25,60)"><rect width="26" height="26" fill="white" stroke="#333"/><text x="40" y="19" font-size="16">Empty</text></g>
+    <g transform="translate(25,95)"><rect width="26" height="26" fill="red" stroke="#333"/><text x="40" y="19" font-size="16">Waiting</text></g>
+    <g transform="translate(25,130)"><rect width="26" height="26" fill="yellow" stroke="#333"/><text x="40" y="19" font-size="16">Rescued</text></g>
+    <g transform="translate(25,165)"><rect width="26" height="26" fill="lime" stroke="#333"/><text x="40" y="19" font-size="16">Landed</text></g>
+  </g>
+</svg>
+
+<!-- Modal -->
 <div class="modal" id="formModal">
   <div class="modal-content">
     <h3>Cabin Info</h3>
     <form id="cabinForm">
-      <label>Guest Name: <input name="guestName"></label>
+      <label>Cabin Number: <input name="sequence"></label>
+      <label>Passenger: <input name="guestName"></label>
       <label>Contact: <input name="contactNumber"></label>
       <label>Health: <input name="health"></label>
       <label>Ambulance: <input name="ambulance"></label>
@@ -68,299 +111,151 @@
       <label>Reached Top: <input type="time" name="timeReachedTop"></label>
       <label>Landed: <input type="time" name="timeLanded"></label>
       <label>Remarks: <textarea name="remarks"></textarea></label>
-      <div class="last-updated" id="lastUpdated"></div>
       <button type="submit">Save</button>
       <button type="button" onclick="clearForm()">Clear</button>
       <button type="button" onclick="closeModal()">Cancel</button>
+      <button type="button" onclick="printCabin()">Print</button>
     </form>
     <div id="qrcode"></div>
   </div>
 </div>
 
-<!-- Libs -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-<script>
-// ===== Firebase =====
+// === Firebase Config (replace!) ===
 const firebaseConfig = {
-  apiKey: "AIzaSyBShQZMBHu1dNGw81tvI3t5IVQtNOYVbR4",
-  authDomain: "rescue-map-cb629.firebaseapp.com",
-  databaseURL: "https://rescue-map-cb629-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "rescue-map-cb629",
-  storageBucket: "rescue-map-cb629.firebasestorage.app",
-  messagingSenderId: "1047215320171",
-  appId: "1:1047215320171:web:ec96b70002c55bb94a552e",
-  measurementId: "G-8BY9K2T845"
+  apiKey: "YOUR-API-KEY",authDomain: "YOUR-PROJECT.firebaseapp.com",databaseURL: "https://YOUR-PROJECT.firebaseio.com",
+  projectId: "YOUR-PROJECT",storageBucket: "YOUR-PROJECT.appspot.com",messagingSenderId: "SENDER-ID",appId: "APP-ID"
 };
-firebase.initializeApp(firebaseConfig);
-const db=firebase.database();
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-// ===== Geometry =====
+// Globals
 const svg=document.getElementById("map");
-const segments=[
-  {name:"TC",cabins:3},{name:"T1",cabins:2},{name:"T2A",cabins:2},
-  {name:"AIAS",cabins:2},{name:"T2B",cabins:9},{name:"T3",cabins:6},
-  {name:"T4",cabins:5},{name:"T5",cabins:1},{name:"NLS",cabins:2},
-  {name:"T6",cabins:7},{name:"T7",cabins:3},{name:"NP",cabins:0}
-];
-const stationNames=["TC","AIAS","NLS","NP"];
-const totalUp=segments.reduce((a,s)=>a+s.cabins,0), totalCabins=totalUp*2;
-const startX=100,endX=1900,usableWidth=endX-startX,slotWidth=usableWidth/totalUp,risePerSlot=6;
+let cabins=[],globalOffset=0,cabinMode=84,currentCabin=null;
 
-// ridge
-function buildGround(){let x=startX,y=600;const pts=[[x,y]];
-  for(let i=0;i<segments.length-1;i++){x+=segments[i].cabins*slotWidth;y-=segments[i].cabins*risePerSlot;pts.push([x,y]);}
-  return pts;
-}
-const groundPts=buildGround();
-let d=`M0,700 L${groundPts[0][0]},${groundPts[0][1]}`;
-for(let i=1;i<groundPts.length;i++){
-  const [x0,y0]=groundPts[i-1],[x1,y1]=groundPts[i];
-  const cx=(x0+x1)/2,cy=(y0+y1)/2;
-  d+=` Q${cx},${cy} ${x1},${y1}`;
-}
-const last=groundPts[groundPts.length-1];
-d+=` L${last[0]},700 L0,700 Z`;
+// === Route geometry ===
+const segments=["TC","T1","T2A","AIAS","T2B","T3","T4","T5","NLS","T6","T7","NP"];
+const slots=[2,2,2,2,10,6,5,1,2,7,3];
+const startX=100,endX=1900,unit=(endX-startX)/42;
+const baseY=600,topY=300,npY=340;
+let x=startX,xCoords=[x];for(let i=0;i<slots.length;i++){x+=slots[i]*unit;xCoords.push(x);}
+const t2bX=xCoords[4],t3X=xCoords[5],nlsX=xCoords[8],npX=xCoords[11];
+
+// Backgrounds
+function rect(x,y,w,h,cls){const r=document.createElementNS("http://www.w3.org/2000/svg","rect");r.setAttribute("x",x);r.setAttribute("y",y);r.setAttribute("width",w);r.setAttribute("height",h);r.setAttribute("class",cls);svg.insertBefore(r,svg.firstChild);}
+rect(xCoords[0],baseY,t2bX-xCoords[0],100,"city");
+rect(t2bX,baseY,t3X-t2bX,100,"sea");
 const mountain=document.createElementNS("http://www.w3.org/2000/svg","path");
-mountain.setAttribute("d",d);
-mountain.setAttribute("class","mountain");
-svg.appendChild(mountain);
+mountain.setAttribute("d",`M${t3X},${baseY} L${nlsX},${topY} L${npX},${npY} L${npX},700 L${t3X},700 Z`);
+mountain.setAttribute("class","mountain");svg.insertBefore(mountain,svg.firstChild);
 
-// rect helper
-function drawRect(x,y,w,h){
-  const r=document.createElementNS("http://www.w3.org/2000/svg","rect");
-  r.setAttribute("x",x);r.setAttribute("y",y);
-  r.setAttribute("width",w);r.setAttribute("height",h);
-  r.setAttribute("class","station");
-  svg.appendChild(r);return r;
-}
-
-// stations/towers
+// Stations + Towers
+let groundPts=[];
 segments.forEach((s,i)=>{
-  const [x,y]=groundPts[i];
-  if(stationNames.includes(s.name)){drawRect(x-22,y-20,44,20);}
-  else{drawRect(x-12,y-12,24,12);}
-  const txt=document.createElementNS("http://www.w3.org/2000/svg","text");
-  txt.setAttribute("x",x);txt.setAttribute("y",y-30);
-  txt.setAttribute("class","label");txt.textContent=s.name;
-  svg.appendChild(txt);
+  let gx=xCoords[i],gy=baseY;
+  if(s==="NLS")gy=topY; else if(s==="NP")gy=npY;
+  else if(s==="T3"||(i>5&&i<segments.indexOf("NLS")))
+    gy=baseY-(baseY-topY)*((gx-t3X)/(nlsX-t3X));
+  else if(i>segments.indexOf("NLS"))
+    gy=topY+(npY-topY)*((gx-nlsX)/(npX-nlsX));
+  groundPts.push([gx,gy]);
+  const u=document.createElementNS("http://www.w3.org/2000/svg","use");
+  u.setAttribute("href",["TC","AIAS","NLS","NP"].includes(s)?"#stationSymbol":"#towerSymbol");
+  u.setAttribute("transform",`translate(${gx},${gy}) scale(0.6)`);svg.appendChild(u);
+  const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+  t.textContent=s;t.setAttribute("x",gx);t.setAttribute("y",gy+25);t.setAttribute("text-anchor","middle");t.setAttribute("class","label");svg.appendChild(t);
 });
 
-// rope loop
-const offset=60;
-const upPts=groundPts.map(p=>[p[0],p[1]-offset]);
-const downPts=groundPts.map(p=>[p[0],p[1]+offset]).reverse();
-const ropePts=[...upPts,...downPts,[upPts[0][0],upPts[0][1]]];
-const rope=document.createElementNS("http://www.w3.org/2000/svg","polyline");
-rope.setAttribute("points",ropePts.map(p=>p.join(",")).join(" "));
-rope.setAttribute("class","rope");
-svg.appendChild(rope);
-segments.forEach((s,i)=>{
-  const [x,y]=groundPts[i],[xu,yu]=upPts[i];
-  const mast=document.createElementNS("http://www.w3.org/2000/svg","line");
-  mast.setAttribute("x1",x);mast.setAttribute("y1",y);
-  mast.setAttribute("x2",xu);mast.setAttribute("y2",yu);
-  mast.setAttribute("class","mast");
-  svg.appendChild(mast);
-});
-
-// rope helpers
+// Rope helpers
 function lengthOf(pts){
-  let L=0;for(let i=0;i<pts.length-1;i++){
-    const dx=pts[i+1][0]-pts[i][0],dy=pts[i+1][1]-pts[i][1];
-    L+=Math.hypot(dx,dy);
-  }return L;
+  let L=0;
+  for(let i=0;i<pts.length-1;i++){
+    L+=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]);
+  }
+  return L;
 }
 function pointAt(pts,d){
   let sum=0;
   for(let i=0;i<pts.length-1;i++){
-    const [x1,y1]=pts[i],[x2,y2]=pts[i+1];
+    const[x1,y1]=pts[i],[x2,y2]=pts[i+1];
     const seg=Math.hypot(x2-x1,y2-y1);
-    if(sum+seg>=d){
-      const t=(d-sum)/seg;
-      return{x:x1+(x2-x1)*t,y:y1+(y2-y1)*t};
-    }sum+=seg;
-  }const last=pts[pts.length-1];
-  return{x:last[0],y:last[1]};
+    if(sum+seg>=d){const t=(d-sum)/seg;return{x:x1+(x2-x1)*t,y:y1+(y2-y1)*t};}
+    sum+=seg;
+  }
+  return{x:pts[pts.length-1][0],y:pts[pts.length-1][1]};
 }
+const offset=60;
+const up=groundPts.map(p=>[p[0],p[1]-offset]);
+const down=groundPts.map(p=>[p[0],p[1]+offset]).reverse();
+const ropePts=[...up,...down,[up[0][0],up[0][1]]];
+const rope=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+rope.setAttribute("points",ropePts.map(p=>p.join(",")).join(" "));
+rope.setAttribute("class","rope");svg.appendChild(rope);
 const ropeLen=lengthOf(ropePts);
 
-// ===== Cabins =====
-const cabins=[];let globalOffset=0;let isDragging=false,lastX=0;
-for(let i=0;i<totalCabins;i++){
-  const g=document.createElementNS("http://www.w3.org/2000/svg","g");
-  g.setAttribute("class","cabin");
-
-  // hexagon
-  const size=18,pts=[];
-  for(let j=0;j<6;j++){const a=Math.PI/3*j;pts.push((size*Math.cos(a))+","+(size*Math.sin(a)));}
-  const hex=document.createElementNS("http://www.w3.org/2000/svg","polygon");
-  hex.setAttribute("points",pts.join(" "));
-  g.appendChild(hex);
-
-  // sequence label inside hex
-  const lbl=document.createElementNS("http://www.w3.org/2000/svg","text");
-  lbl.setAttribute("class","seq-label");
-  lbl.setAttribute("text-anchor","middle");
-  lbl.setAttribute("dominant-baseline","middle");
-  g.appendChild(lbl);
-
-  const c={id:(i<42?"up-":"down-")+(i%42),
-           fields:{},elGroup:g,elShape:hex,elLabel:lbl};
-  g.addEventListener("dblclick",()=>openModal(c));
-
-  db.ref("cabins/"+c.id).on("value",snap=>{
-    if(snap.exists()){
-      c.fields=snap.val();
-      updateCabinColor(c);
-      if(c.fields.sequence) c.elLabel.textContent=c.fields.sequence;
-      else c.elLabel.textContent="";
-    }
-  });
-
-  cabins.push(c);
-  svg.appendChild(g);
-}
-function layoutCabins(){
-  cabins.forEach((c,i)=>{
-    const base=i*ropeLen/totalCabins;
-    const dist=(base+globalOffset+ropeLen)%ropeLen;
-    const pos=pointAt(ropePts,dist);
-    c.elGroup.setAttribute("transform",`translate(${pos.x},${pos.y})`);
-  });
-}
-layoutCabins();
-svg.addEventListener("mousedown",e=>{isDragging=true;lastX=e.clientX;});
-svg.addEventListener("mousemove",e=>{
-  if(isDragging){
-    const dx=e.clientX-lastX;
-    globalOffset=(globalOffset+dx+ropeLen)%ropeLen;
-    layoutCabins();lastX=e.clientX;
+// Cabins
+function buildCabins(){
+  cabins.forEach(c=>{if(c.elGroup)svg.removeChild(c.elGroup)});cabins=[];
+  const total=cabinMode,size=cabinMode===109?14:18;
+  for(let i=0;i<total;i++){
+    const g=document.createElementNS("http://www.w3.org/2000/svg","g");g.setAttribute("class","cabin");
+    const pts=[];for(let j=0;j<6;j++){const a=Math.PI/3*j;pts.push((size*Math.cos(a))+","+(size*Math.sin(a)));}
+    const hex=document.createElementNS("http://www.w3.org/2000/svg","polygon");hex.setAttribute("points",pts.join(" "));g.appendChild(hex);
+    const lbl=document.createElementNS("http://www.w3.org/2000/svg","text");lbl.setAttribute("class","seq-label");lbl.setAttribute("y","5");g.appendChild(lbl);
+    const c={id:"cabin-"+i,fields:{},elGroup:g,elShape:hex,elLabel:lbl};
+    g.addEventListener("dblclick",()=>openModal(c));
+    cabins.push(c);svg.appendChild(g);
   }
-});
-svg.addEventListener("mouseup",()=>{isDragging=false;});
+  layoutCabins();updateSummary();
+}
+function layoutCabins(){cabins.forEach((c,i)=>{const d=(i*ropeLen/cabins.length+globalOffset)%ropeLen;const pos=pointAt(ropePts,d);c.elGroup.setAttribute("transform",`translate(${pos.x},${pos.y})`);});}
+function updateSummary(){let waiting=0,landed=0;cabins.forEach(c=>{if(c.elGroup.classList.contains("status-green"))landed++;else if(c.elGroup.classList.contains("status-red")||c.elGroup.classList.contains("status-yellow"))waiting++;});document.getElementById("waitingText").textContent="Waiting: "+waiting;document.getElementById("landedText").textContent="Landed: "+landed;}
+buildCabins();
 
-// ===== Logic =====
-function updateCabinColor(c){
-  const f=c.fields||{};
-  c.elShape.setAttribute("fill","white");
-  c.elGroup.classList.remove("status-red","status-yellow","status-green");
-
-  const guestName = f.guestName&&f.guestName.trim()!=="";
-  const contact   = f.contactNumber&&f.contactNumber.trim()!=="";
-  const health    = f.health&&f.health.trim()!=="";
-  const ambulance = f.ambulance&&f.ambulance.trim()!=="";
-  const rescued   = f.rescuedBy&&f.rescuedBy.trim()!=="";
-  const reached   = f.timeReachedTop&&f.timeReachedTop.trim()!=="";
-  const landed    = f.timeLanded&&f.timeLanded.trim()!=="";
-  const remarks   = f.remarks&&f.remarks.trim()!=="";
-
-  if(landed){
-    c.elGroup.classList.add("status-green");
-  }else if(rescued){
-    c.elGroup.classList.add("status-yellow");
-  }else if(guestName||contact||health||ambulance||reached||remarks){
-    c.elGroup.classList.add("status-red");
-  }
-  updateSummary();
-}
-
-function updateSummary(){
-  let w=0,l=0;
-  cabins.forEach(c=>{
-    if(c.fields.timeLanded)l++;
-    else if(c.elGroup.classList.contains("status-red")||c.elGroup.classList.contains("status-yellow"))w++;
-  });
-  document.getElementById("waitingCount").textContent=w;
-  document.getElementById("landedCount").textContent=l;
-}
-function applySequences(){
-  const seq=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);
-  cabins.forEach((c,i)=>{
-    const lb=seq[i]||"";
-    c.elLabel.textContent=lb;
-    c.fields.sequence=lb;
-    db.ref("cabins/"+c.id).update({sequence:lb});
-    updateCabinColor(c);
-  });
-}
-function searchCabin(){
-  const val=document.getElementById("searchBox").value.trim().toLowerCase();
-  let found=null;
-  cabins.forEach(c=>{
-    c.elShape.setAttribute("stroke","#333");
-    c.elShape.setAttribute("stroke-width","1");
-    if(c.id.toLowerCase()===val||c.fields.sequence===val)found=c;
-  });
-  if(found){
-    found.elShape.setAttribute("stroke","blue");
-    found.elShape.setAttribute("stroke-width","3");
-  }else alert("Not found");
-}
-function clearAllData(){
-  if(confirm("Clear ALL?")){
-    db.ref("cabins").remove();
-    cabins.forEach(c=>{
-      c.fields={};c.elLabel.textContent="";
-      c.elShape.setAttribute("fill","white");
-      c.elGroup.classList.remove("status-red","status-yellow","status-green");
-    });
-    updateSummary();
-  }
-}
-
-// ===== Modal =====
-const modal=document.getElementById("formModal"),form=document.getElementById("cabinForm");let currentCabin=null;
-function openModal(c){
-  currentCabin=c;modal.style.display="flex";
-  Array.from(form.elements).forEach(el=>{if(el.name)el.value=c.fields[el.name]||"";});
-  document.getElementById("lastUpdated").textContent=c.fields.updatedAt?"Last updated: "+c.fields.updatedAt:"";
-  updateQR(c);
-}
+// Modal
+const modal=document.getElementById("formModal"),form=document.getElementById("cabinForm");
+function openModal(c){currentCabin=c;modal.style.display="flex";form.reset();for(const k in c.fields){if(form.elements[k])form.elements[k].value=c.fields[k];}}
 function closeModal(){modal.style.display="none";currentCabin=null;}
-form.onsubmit=(e)=>{
-  e.preventDefault();if(!currentCabin)return;
-  Array.from(form.elements).forEach(el=>{if(el.name)currentCabin.fields[el.name]=el.value;});
-  currentCabin.fields.updatedAt=new Date().toLocaleString();
-  db.ref("cabins/"+currentCabin.id).set(currentCabin.fields);
-  updateCabinColor(currentCabin);updateQR(currentCabin);closeModal();
-}
-function clearForm(){
-  if(!currentCabin) return;
-  // keep sequence
-  const seq = currentCabin.fields.sequence || "";
-  currentCabin.fields = { sequence: seq };
+function clearForm(){if(!currentCabin)return;const seq=currentCabin.fields.sequence||"";currentCabin.fields={sequence:seq};currentCabin.elLabel.textContent=seq;currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");modal.style.display="none";updateSummary();}
+form.onsubmit=e=>{e.preventDefault();if(!currentCabin)return;for(const el of form.elements){if(el.name)currentCabin.fields[el.name]=el.value;}currentCabin.elLabel.textContent=currentCabin.fields.sequence||"";currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");if(currentCabin.fields.timeLanded)currentCabin.elGroup.classList.add("status-green");else if(currentCabin.fields.rescuedBy)currentCabin.elGroup.classList.add("status-yellow");else if(currentCabin.fields.guestName)currentCabin.elGroup.classList.add("status-red");updateSummary();set(ref(db,'cabins/'+currentCabin.id),currentCabin.fields);closeModal();};
+function printCabin(){if(!currentCabin)return;window.print();}
 
-  Array.from(form.elements).forEach(el=>{
-    if(el.name && el.name!=="sequence") el.value="";
-  });
+// Apply sequences
+function applySequences(){const arr=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);cabins.forEach((c,i)=>{const v=arr[i]||"";c.fields.sequence=v;c.elLabel.textContent=v;});saveAllToFirebase();}
+function saveAllToFirebase(){const data={};cabins.forEach(c=>{data[c.id]=c.fields});set(ref(db,'cabins'),data);}
+function clearAllData(){cabins.forEach(c=>{c.fields={};c.elLabel.textContent="";c.elGroup.classList.remove("status-red","status-yellow","status-green");});updateSummary();}
 
-  currentCabin.elLabel.textContent = seq;
-  currentCabin.elShape.setAttribute("fill","white");
-  currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");
+// Search
+function searchCabin(){const val=document.getElementById("searchBox").value.trim();let found=null;cabins.forEach(c=>{c.elShape.setAttribute("stroke","#333");c.elShape.removeAttribute("filter");if(c.fields.sequence===val)found=c;});if(found){found.elShape.setAttribute("stroke","deepskyblue");found.elShape.setAttribute("filter","url(#highlightGlow)");setTimeout(()=>{found.elShape.setAttribute("stroke","#333");found.elShape.removeAttribute("filter");},2000);}else alert("Cabin not found");}
 
-  db.ref("cabins/"+currentCabin.id).set(currentCabin.fields);
-  updateQR(currentCabin);updateSummary();
-}
+// Drag rope
+let dragging=false,lastX=0;
+svg.addEventListener("mousedown",e=>{dragging=true;lastX=e.clientX;});
+svg.addEventListener("mousemove",e=>{if(dragging){globalOffset=(globalOffset+(e.clientX-lastX)+ropeLen)%ropeLen;layoutCabins();lastX=e.clientX;}});
+svg.addEventListener("mouseup",()=>dragging=false);
+svg.addEventListener("mouseleave",()=>dragging=false);
 
-// ===== QR =====
-function updateQR(c){
-  const url=location.origin+location.pathname+"?id="+encodeURIComponent(c.id);
-  const box=document.getElementById("qrcode");box.innerHTML="";
-  new QRCode(box,{text:url,width:160,height:160});
-  const link=document.createElement("a");link.href=url;link.textContent=url;link.target="_blank";box.appendChild(link);
-}
-function openCabinFromURL(){
-  const p=new URLSearchParams(window.location.search),id=p.get("id");
-  if(!id)return;
-  const chk=setInterval(()=>{
-    const cab=cabins.find(c=>c.id===id);
-    if(cab){clearInterval(chk);openModal(cab);}
-  },300);
-}
-openCabinFromURL();
+// Toggle cabins
+document.getElementById("toggleBtn").addEventListener("click",()=>{if(cabinMode===84){cabinMode=109;document.getElementById("toggleBtn").textContent="Switch to 84 Cabins";document.getElementById("modeLabel").textContent="Mode: 109 cabins";}else{cabinMode=84;document.getElementById("toggleBtn").textContent="Switch to 109 Cabins";document.getElementById("modeLabel").textContent="Mode: 84 cabins";}buildCabins();});
+
+// CSV
+document.getElementById("exportBtn").addEventListener("click",()=>{const sep=document.getElementById("sepSelect").value;const header=["Cabin Number","Passenger","Contact","Health","Ambulance","Rescued By","Reached Top","Landed","Remarks","Status"];const rows=cabins.map(c=>{let st="Empty";if(c.elGroup.classList.contains("status-green"))st="Landed";else if(c.elGroup.classList.contains("status-yellow"))st="Rescued";else if(c.elGroup.classList.contains("status-red"))st="Waiting";return [c.fields.sequence||"",c.fields.guestName||"",c.fields.contactNumber||"",c.fields.health||"",c.fields.ambulance||"",c.fields.rescuedBy||"",c.fields.timeReachedTop||"",c.fields.timeLanded||"",c.fields.remarks||"",st].join(sep)});const csv=[header.join(sep),...rows].join("\n");const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="cabins.csv";a.click();});
+
+// Real-time Firebase
+const cabinsRef = ref(db,'cabins');
+onValue(cabinsRef,(snap)=>{if(snap.exists()){const data=snap.val();cabins.forEach(c=>{if(data[c.id]){c.fields=data[c.id];c.elLabel.textContent=c.fields.sequence||"";c.elGroup.classList.remove("status-red","status-yellow","status-green");if(c.fields.timeLanded)c.elGroup.classList.add("status-green");else if(c.fields.rescuedBy)c.elGroup.classList.add("status-yellow");else if(c.fields.guestName)c.elGroup.classList.add("status-red");}});updateSummary();}});
+
+// Expose globals
+window.applySequences=applySequences;
+window.searchCabin=searchCabin;
+window.clearAllData=clearAllData;
+window.closeModal=closeModal;
+window.clearForm=clearForm;
+window.printCabin=printCabin;
 </script>
 </body>
 </html>
