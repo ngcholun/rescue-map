@@ -27,6 +27,10 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
 .modal-content button{margin-top:10px;padding:6px 10px;}
 #qrcode{text-align:center;margin-top:10px;}
 #modeLabel{margin-left:10px;font-weight:bold;}
+/* Highlight effect */
+@keyframes pulse{0%{transform:scale(1);}50%{transform:scale(1.5);}100%{transform:scale(1);}}
+@keyframes shake{0%,100%{transform:translate(0,0);}25%{transform:translate(-8px,0);}75%{transform:translate(8px,0);}}
+.cabin-highlight polygon{stroke:gold;stroke-width:6;filter:url(#highlightGlow);animation:pulse 0.6s ease-in-out infinite,shake 0.4s ease-in-out infinite alternate;}
 </style>
 </head>
 <body>
@@ -56,7 +60,7 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
       <stop offset="0%" stop-color="#81D4FA"/><stop offset="100%" stop-color="#0288D1"/>
     </linearGradient>
     <filter id="highlightGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="deepskyblue" flood-opacity="0.9"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="gold" flood-opacity="1"/>
     </filter>
     <!-- Tower -->
     <g id="towerSymbol">
@@ -111,22 +115,23 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
       <label>Reached Top: <input type="time" name="timeReachedTop"></label>
       <label>Landed: <input type="time" name="timeLanded"></label>
       <label>Remarks: <textarea name="remarks"></textarea></label>
+      <div id="qrcode"></div>
       <button type="submit">Save</button>
       <button type="button" onclick="clearForm()">Clear</button>
       <button type="button" onclick="closeModal()">Cancel</button>
       <button type="button" onclick="printCabin()">Print</button>
     </form>
-    <div id="qrcode"></div>
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// ==== Firebase Config ====
+// Firebase init
 const firebaseConfig = {
-  apiKey: "AIzaSyBShQZMBHu1dNGw81tvI3t5IVQtNOYVbR4",
+  apiKey: "AIzaSy...YOURKEY...",
   authDomain: "rescue-map-cb629.firebaseapp.com",
   databaseURL: "https://rescue-map-cb629-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "rescue-map-cb629",
@@ -135,36 +140,31 @@ const firebaseConfig = {
   appId: "1:1047215320171:web:ec96b70002c55bb94a552e",
   measurementId: "G-8BY9K2T845"
 };
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+const app=initializeApp(firebaseConfig);
+const db=getDatabase(app,firebaseConfig.databaseURL);
 
 // Globals
 const svg=document.getElementById("map");
 let cabins=[],globalOffset=0,cabinMode=84,currentCabin=null;
 
-// ===== Drawing Backgrounds, Towers & Rope =====
+// === Drawing background, mountain, rope, stations ===
 const segments=["TC","T1","T2A","AIAS","T2B","T3","T4","T5","NLS","T6","T7","NP"];
 const slots=[2,2,2,2,10,6,5,1,2,7,3];
 const startX=100,endX=1900,unit=(endX-startX)/42;
 const baseY=600,topY=300,npY=340;
-let x=startX,xCoords=[x];for(let i=0;i<slots.length;i++){x+=slots[i]*unit;xCoords.push(x);}
+let x=startX;const xCoords=[x];for(let i=0;i<slots.length;i++){x+=slots[i]*unit;xCoords.push(x);}
 const t2bX=xCoords[4],t3X=xCoords[5],nlsX=xCoords[8],npX=xCoords[11];
-
-// Backgrounds
-function rect(x,y,w,h,cls){
-  const r=document.createElementNS("http://www.w3.org/2000/svg","rect");
-  r.setAttribute("x",x);r.setAttribute("y",y);r.setAttribute("width",w);r.setAttribute("height",h);
-  r.setAttribute("class",cls);svg.insertBefore(r,svg.firstChild);}
+// City & Sea
+function rect(x,y,w,h,cls){const r=document.createElementNS("http://www.w3.org/2000/svg","rect");r.setAttribute("x",x);r.setAttribute("y",y);r.setAttribute("width",w);r.setAttribute("height",h);r.setAttribute("class",cls);svg.insertBefore(r,svg.firstChild);}
 rect(xCoords[0],baseY,t2bX-xCoords[0],100,"city");
 rect(t2bX,baseY,t3X-t2bX,100,"sea");
+// Mountain
 const mountain=document.createElementNS("http://www.w3.org/2000/svg","path");
 mountain.setAttribute("d",`M${t3X},${baseY} L${nlsX},${topY} L${npX},${npY} L${npX},700 L${t3X},700 Z`);
 mountain.setAttribute("class","mountain");svg.insertBefore(mountain,svg.firstChild);
-
 // Stations + Towers
 let groundPts=[];
-segments.forEach((s,i)=>{
-  let gx=xCoords[i],gy=baseY;
+segments.forEach((s,i)=>{let gx=xCoords[i],gy=baseY;
   if(s==="NLS")gy=topY;
   else if(s==="NP")gy=npY;
   else if(s==="T3"||(i>5&&i<segments.indexOf("NLS")))
@@ -178,10 +178,9 @@ segments.forEach((s,i)=>{
   const t=document.createElementNS("http://www.w3.org/2000/svg","text");
   t.textContent=s;t.setAttribute("x",gx);t.setAttribute("y",gy+25);t.setAttribute("text-anchor","middle");t.setAttribute("class","label");svg.appendChild(t);
 });
-
 // Rope
 function lengthOf(pts){let L=0;for(let i=0;i<pts.length-1;i++){L+=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]);}return L;}
-function pointAt(pts,d){let sum=0;for(let i=0;i<pts.length-1;i++){const[x1,y1]=pts[i],[x2,y2]=pts[i+1];const seg=Math.hypot(x2-x1,y2-y1);if(sum+seg>=d){const t=(d-sum)/seg;return{x:x1+(x2-x1)*t,y:y1+(y2-y1)*t};}sum+=seg;}return{x:pts[pts.length-1][0],y:pts[pts.length-1][1]};}
+function pointAt(pts,d){let sum=0;for(let i=0;i<pts.length-1;i++){const[x1,y1]=pts[i],[x2,y2]=pts[i+1];const seg=Math.hypot(x2-x1,y2-y1);if(sum+seg>=d){const t=(d-sum)/seg;return{x:x1+(x2-x1)*t,y:y1+(y2-y1)*t};}sum+=seg;}return{x:pts.at(-1)[0],y:pts.at(-1)[1]};}
 const offset=60;
 const up=groundPts.map(p=>[p[0],p[1]-offset]);
 const down=groundPts.map(p=>[p[0],p[1]+offset]).reverse();
@@ -191,9 +190,10 @@ rope.setAttribute("points",ropePts.map(p=>p.join(",")).join(" "));
 rope.setAttribute("class","rope");svg.appendChild(rope);
 const ropeLen=lengthOf(ropePts);
 
-// ===== Cabins =====
+// === Cabins ===
 function buildCabins(){
-  cabins.forEach(c=>{if(c.elGroup)svg.removeChild(c.elGroup)});cabins=[];
+  cabins.forEach(c=>{if(c.elGroup)svg.removeChild(c.elGroup)});
+  cabins=[];
   const total=cabinMode,size=cabinMode===109?14:18;
   for(let i=0;i<total;i++){
     const g=document.createElementNS("http://www.w3.org/2000/svg","g");g.setAttribute("class","cabin");
@@ -212,26 +212,25 @@ function layoutCabins(){cabins.forEach((c,i)=>{const d=(i*ropeLen/cabins.length+
 function updateSummary(){let waiting=0,landed=0;cabins.forEach(c=>{if(c.elGroup.classList.contains("status-green"))landed++;else if(c.elGroup.classList.contains("status-red")||c.elGroup.classList.contains("status-yellow"))waiting++;});document.getElementById("waitingText").textContent="Waiting: "+waiting;document.getElementById("landedText").textContent="Landed: "+landed;}
 buildCabins();
 
-// ===== Modal =====
+// === Modal ===
 const modal=document.getElementById("formModal"),form=document.getElementById("cabinForm");
-function openModal(c){currentCabin=c;modal.style.display="flex";form.reset();for(const k in c.fields){if(form.elements[k])form.elements[k].value=c.fields[k];}}
-function closeModal(){modal.style.display="none";currentCabin=null;}
-function clearForm(){if(!currentCabin)return;const seq=currentCabin.fields.sequence||"";currentCabin.fields={sequence:seq};currentCabin.elLabel.textContent=seq;currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");modal.style.display="none";updateSummary();}
-form.onsubmit=e=>{e.preventDefault();if(!currentCabin)return;for(const el of form.elements){if(el.name)currentCabin.fields[el.name]=el.value;}currentCabin.elLabel.textContent=currentCabin.fields.sequence||"";currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");if(currentCabin.fields.timeLanded)currentCabin.elGroup.classList.add("status-green");else if(currentCabin.fields.rescuedBy)currentCabin.elGroup.classList.add("status-yellow");else if(currentCabin.fields.guestName)currentCabin.elGroup.classList.add("status-red");updateSummary();set(ref(db,'cabins/'+currentCabin.id),currentCabin.fields);closeModal();};
+function openModal(c){currentCabin=c;modal.style.display="flex";form.reset();for(const k in c.fields){if(form.elements[k])form.elements[k].value=c.fields[k];}generateQRCode();}
+function closeModal(){modal.style.display="none";currentCabin=null;document.getElementById("qrcode").innerHTML="";}
+function clearForm(){if(!currentCabin)return;const seq=currentCabin.fields.sequence||"";currentCabin.fields={sequence:seq};currentCabin.elLabel.textContent=seq;currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");closeModal();updateSummary();}
+form.onsubmit=e=>{e.preventDefault();if(!currentCabin)return;for(const el of form.elements){if(el.name)currentCabin.fields[el.name]=el.value;}currentCabin.elLabel.textContent=currentCabin.fields.sequence||"";currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");if(currentCabin.fields.timeLanded)currentCabin.elGroup.classList.add("status-green");else if(currentCabin.fields.rescuedBy)currentCabin.elGroup.classList.add("status-yellow");else if(currentCabin.fields.guestName)currentCabin.elGroup.classList.add("status-red");updateSummary();set(ref(db,'cabins/'+currentCabin.id),currentCabin.fields);generateQRCode();closeModal();};
 function printCabin(){if(!currentCabin)return;window.print();}
+function generateQRCode(){document.getElementById("qrcode").innerHTML="";if(currentCabin){new QRCode(document.getElementById("qrcode"),JSON.stringify(currentCabin.fields,null,2));}}
 
-// ===== Apply sequences / clear / save =====
-function applySequences(){const arr=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);cabins.forEach((c,i)=>{const v=arr[i]||"";c.fields.sequence=v;c.elLabel.textContent=v;});saveAllToFirebase();}
+// === Apply / Clear / CSV ===
+function applySequences(){const arr=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);cabins.forEach((c,i)=>{const v=arr[i]||"";c.fields.sequence=v;c.elLabel.textContent=v;});updateSummary();saveAllToFirebase();}
 function saveAllToFirebase(){const data={};cabins.forEach(c=>{data[c.id]=c.fields});set(ref(db,'cabins'),data);}
 function clearAllData(){cabins.forEach(c=>{c.fields={};c.elLabel.textContent="";c.elGroup.classList.remove("status-red","status-yellow","status-green");});updateSummary();}
-
-// ===== Search =====
-function searchCabin(){const val=document.getElementById("searchBox").value.trim();let found=null;cabins.forEach(c=>{c.elShape.setAttribute("stroke","#333");c.elShape.removeAttribute("filter");if(c.fields.sequence===val)found=c;});if(found){found.elShape.setAttribute("stroke","deepskyblue");found.elShape.setAttribute("filter","url(#highlightGlow)");setTimeout(()=>{found.elShape.setAttribute("stroke","#333");found.elShape.removeAttribute("filter");},2000);}else alert("Cabin not found");}
-
-// ===== CSV Export =====
 document.getElementById("exportBtn").addEventListener("click",()=>{const sep=document.getElementById("sepSelect").value;const header=["Cabin Number","Passenger","Contact","Health","Ambulance","Rescued By","Reached Top","Landed","Remarks","Status"];const rows=cabins.map(c=>{let st="Empty";if(c.elGroup.classList.contains("status-green"))st="Landed";else if(c.elGroup.classList.contains("status-yellow"))st="Rescued";else if(c.elGroup.classList.contains("status-red"))st="Waiting";return [c.fields.sequence||"",c.fields.guestName||"",c.fields.contactNumber||"",c.fields.health||"",c.fields.ambulance||"",c.fields.rescuedBy||"",c.fields.timeReachedTop||"",c.fields.timeLanded||"",c.fields.remarks||"",st].join(sep)});const csv=[header.join(sep),...rows].join("\n");const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="cabins.csv";a.click();});
 
-// ===== Rope drag sync =====
+// === Search ===
+function searchCabin(){const val=document.getElementById("searchBox").value.trim();let found=null;cabins.forEach(c=>c.elGroup.classList.remove("cabin-highlight"));cabins.forEach(c=>{if(c.fields.sequence===val)found=c;});if(found){found.elGroup.classList.add("cabin-highlight");setTimeout(()=>found.elGroup.classList.remove("cabin-highlight"),4000);}else alert("Cabin not found");}
+
+// === Rope drag sync ===
 let dragging=false,lastX=0;
 svg.addEventListener("mousedown",e=>{dragging=true;lastX=e.clientX;});
 svg.addEventListener("mousemove",e=>{if(dragging){globalOffset=(globalOffset+(e.clientX-lastX)+ropeLen)%ropeLen;layoutCabins();lastX=e.clientX;set(ref(db,'globalOffset'),globalOffset);}});
@@ -239,16 +238,15 @@ svg.addEventListener("mouseup",()=>dragging=false);
 svg.addEventListener("mouseleave",()=>dragging=false);
 onValue(ref(db,'globalOffset'),snap=>{if(snap.exists()){const val=snap.val()%ropeLen;if(val!==globalOffset){globalOffset=val;layoutCabins();}}});
 
-// ===== Toggle cabins sync =====
+// === Toggle cabins sync ===
 function updateModeUI(){document.getElementById("toggleBtn").textContent=(cabinMode===84?"Switch to 109 Cabins":"Switch to 84 Cabins");document.getElementById("modeLabel").textContent="Mode: "+cabinMode+" cabins";}
 document.getElementById("toggleBtn").addEventListener("click",()=>{cabinMode=(cabinMode===84?109:84);buildCabins();updateModeUI();set(ref(db,'cabinMode'), cabinMode);});
 onValue(ref(db,'cabinMode'),snap=>{if(snap.exists()&&snap.val()!==cabinMode){cabinMode=snap.val();buildCabins();updateModeUI();}});
 
-// ===== Cabin realtime sync =====
-const cabinsRef=ref(db,'cabins');
-onValue(cabinsRef,(snap)=>{if(snap.exists()){const data=snap.val();cabins.forEach(c=>{if(data[c.id]){c.fields=data[c.id];c.elLabel.textContent=c.fields.sequence||"";c.elGroup.classList.remove("status-red","status-yellow","status-green");if(c.fields.timeLanded)c.elGroup.classList.add("status-green");else if(c.fields.rescuedBy)c.elGroup.classList.add("status-yellow");else if(c.fields.guestName)c.elGroup.classList.add("status-red");}});updateSummary();}});
+// === Cabin realtime sync ===
+onValue(ref(db,'cabins'),snap=>{if(snap.exists()){const data=snap.val();cabins.forEach(c=>{if(data[c.id]){c.fields=data[c.id];c.elLabel.textContent=c.fields.sequence||"";c.elGroup.classList.remove("status-red","status-yellow","status-green");if(c.fields.timeLanded)c.elGroup.classList.add("status-green");else if(c.fields.rescuedBy)c.elGroup.classList.add("status-yellow");else if(c.fields.guestName)c.elGroup.classList.add("status-red");}});updateSummary();}});
 
-// Expose functions globally
+// === Expose functions for buttons ===
 window.applySequences=applySequences;
 window.searchCabin=searchCabin;
 window.clearAllData=clearAllData;
