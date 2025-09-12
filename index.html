@@ -120,12 +120,11 @@ svg{width:100%;height:700px;display:block;background:#e0f7fa;}
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// ==== Firebase Config (your real project) ====
+// ==== Firebase Config ====
 const firebaseConfig = {
   apiKey: "AIzaSyBShQZMBHu1dNGw81tvI3t5IVQtNOYVbR4",
   authDomain: "rescue-map-cb629.firebaseapp.com",
@@ -143,7 +142,7 @@ const db = getDatabase(app);
 const svg=document.getElementById("map");
 let cabins=[],globalOffset=0,cabinMode=84,currentCabin=null;
 
-// Route anchors
+// ===== Drawing Backgrounds, Towers & Rope =====
 const segments=["TC","T1","T2A","AIAS","T2B","T3","T4","T5","NLS","T6","T7","NP"];
 const slots=[2,2,2,2,10,6,5,1,2,7,3];
 const startX=100,endX=1900,unit=(endX-startX)/42;
@@ -192,7 +191,7 @@ rope.setAttribute("points",ropePts.map(p=>p.join(",")).join(" "));
 rope.setAttribute("class","rope");svg.appendChild(rope);
 const ropeLen=lengthOf(ropePts);
 
-// Cabins
+// ===== Cabins =====
 function buildCabins(){
   cabins.forEach(c=>{if(c.elGroup)svg.removeChild(c.elGroup)});cabins=[];
   const total=cabinMode,size=cabinMode===109?14:18;
@@ -213,7 +212,7 @@ function layoutCabins(){cabins.forEach((c,i)=>{const d=(i*ropeLen/cabins.length+
 function updateSummary(){let waiting=0,landed=0;cabins.forEach(c=>{if(c.elGroup.classList.contains("status-green"))landed++;else if(c.elGroup.classList.contains("status-red")||c.elGroup.classList.contains("status-yellow"))waiting++;});document.getElementById("waitingText").textContent="Waiting: "+waiting;document.getElementById("landedText").textContent="Landed: "+landed;}
 buildCabins();
 
-// Modal
+// ===== Modal =====
 const modal=document.getElementById("formModal"),form=document.getElementById("cabinForm");
 function openModal(c){currentCabin=c;modal.style.display="flex";form.reset();for(const k in c.fields){if(form.elements[k])form.elements[k].value=c.fields[k];}}
 function closeModal(){modal.style.display="none";currentCabin=null;}
@@ -221,32 +220,35 @@ function clearForm(){if(!currentCabin)return;const seq=currentCabin.fields.seque
 form.onsubmit=e=>{e.preventDefault();if(!currentCabin)return;for(const el of form.elements){if(el.name)currentCabin.fields[el.name]=el.value;}currentCabin.elLabel.textContent=currentCabin.fields.sequence||"";currentCabin.elGroup.classList.remove("status-red","status-yellow","status-green");if(currentCabin.fields.timeLanded)currentCabin.elGroup.classList.add("status-green");else if(currentCabin.fields.rescuedBy)currentCabin.elGroup.classList.add("status-yellow");else if(currentCabin.fields.guestName)currentCabin.elGroup.classList.add("status-red");updateSummary();set(ref(db,'cabins/'+currentCabin.id),currentCabin.fields);closeModal();};
 function printCabin(){if(!currentCabin)return;window.print();}
 
-// Apply sequences
+// ===== Apply sequences / clear / save =====
 function applySequences(){const arr=document.getElementById("seqInput").value.split(/[\s,]+/).filter(Boolean);cabins.forEach((c,i)=>{const v=arr[i]||"";c.fields.sequence=v;c.elLabel.textContent=v;});saveAllToFirebase();}
 function saveAllToFirebase(){const data={};cabins.forEach(c=>{data[c.id]=c.fields});set(ref(db,'cabins'),data);}
 function clearAllData(){cabins.forEach(c=>{c.fields={};c.elLabel.textContent="";c.elGroup.classList.remove("status-red","status-yellow","status-green");});updateSummary();}
 
-// Search
+// ===== Search =====
 function searchCabin(){const val=document.getElementById("searchBox").value.trim();let found=null;cabins.forEach(c=>{c.elShape.setAttribute("stroke","#333");c.elShape.removeAttribute("filter");if(c.fields.sequence===val)found=c;});if(found){found.elShape.setAttribute("stroke","deepskyblue");found.elShape.setAttribute("filter","url(#highlightGlow)");setTimeout(()=>{found.elShape.setAttribute("stroke","#333");found.elShape.removeAttribute("filter");},2000);}else alert("Cabin not found");}
 
-// Drag rope
-let dragging=false,lastX=0;
-svg.addEventListener("mousedown",e=>{dragging=true;lastX=e.clientX;});
-svg.addEventListener("mousemove",e=>{if(dragging){globalOffset=(globalOffset+(e.clientX-lastX)+ropeLen)%ropeLen;layoutCabins();lastX=e.clientX;}});
-svg.addEventListener("mouseup",()=>dragging=false);
-svg.addEventListener("mouseleave",()=>dragging=false);
-
-// Toggle cabins
-document.getElementById("toggleBtn").addEventListener("click",()=>{if(cabinMode===84){cabinMode=109;document.getElementById("toggleBtn").textContent="Switch to 84 Cabins";document.getElementById("modeLabel").textContent="Mode: 109 cabins";}else{cabinMode=84;document.getElementById("toggleBtn").textContent="Switch to 109 Cabins";document.getElementById("modeLabel").textContent="Mode: 84 cabins";}buildCabins();});
-
-// CSV
+// ===== CSV Export =====
 document.getElementById("exportBtn").addEventListener("click",()=>{const sep=document.getElementById("sepSelect").value;const header=["Cabin Number","Passenger","Contact","Health","Ambulance","Rescued By","Reached Top","Landed","Remarks","Status"];const rows=cabins.map(c=>{let st="Empty";if(c.elGroup.classList.contains("status-green"))st="Landed";else if(c.elGroup.classList.contains("status-yellow"))st="Rescued";else if(c.elGroup.classList.contains("status-red"))st="Waiting";return [c.fields.sequence||"",c.fields.guestName||"",c.fields.contactNumber||"",c.fields.health||"",c.fields.ambulance||"",c.fields.rescuedBy||"",c.fields.timeReachedTop||"",c.fields.timeLanded||"",c.fields.remarks||"",st].join(sep)});const csv=[header.join(sep),...rows].join("\n");const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="cabins.csv";a.click();});
 
-// Real-time Firebase listener
-const cabinsRef=ref(db,'cabins');
-onValue(cabinsRef,(snap)=>{console.log("Realtime update:",snap.val());if(snap.exists()){const data=snap.val();cabins.forEach(c=>{if(data[c.id]){c.fields=data[c.id];c.elLabel.textContent=c.fields.sequence||"";c.elGroup.classList.remove("status-red","status-yellow","status-green");if(c.fields.timeLanded)c.elGroup.classList.add("status-green");else if(c.fields.rescuedBy)c.elGroup.classList.add("status-yellow");else if(c.fields.guestName)c.elGroup.classList.add("status-red");}});updateSummary();}});
+// ===== Rope drag sync =====
+let dragging=false,lastX=0;
+svg.addEventListener("mousedown",e=>{dragging=true;lastX=e.clientX;});
+svg.addEventListener("mousemove",e=>{if(dragging){globalOffset=(globalOffset+(e.clientX-lastX)+ropeLen)%ropeLen;layoutCabins();lastX=e.clientX;set(ref(db,'globalOffset'),globalOffset);}});
+svg.addEventListener("mouseup",()=>dragging=false);
+svg.addEventListener("mouseleave",()=>dragging=false);
+onValue(ref(db,'globalOffset'),snap=>{if(snap.exists()){const val=snap.val()%ropeLen;if(val!==globalOffset){globalOffset=val;layoutCabins();}}});
 
-// Expose globals
+// ===== Toggle cabins sync =====
+function updateModeUI(){document.getElementById("toggleBtn").textContent=(cabinMode===84?"Switch to 109 Cabins":"Switch to 84 Cabins");document.getElementById("modeLabel").textContent="Mode: "+cabinMode+" cabins";}
+document.getElementById("toggleBtn").addEventListener("click",()=>{cabinMode=(cabinMode===84?109:84);buildCabins();updateModeUI();set(ref(db,'cabinMode'), cabinMode);});
+onValue(ref(db,'cabinMode'),snap=>{if(snap.exists()&&snap.val()!==cabinMode){cabinMode=snap.val();buildCabins();updateModeUI();}});
+
+// ===== Cabin realtime sync =====
+const cabinsRef=ref(db,'cabins');
+onValue(cabinsRef,(snap)=>{if(snap.exists()){const data=snap.val();cabins.forEach(c=>{if(data[c.id]){c.fields=data[c.id];c.elLabel.textContent=c.fields.sequence||"";c.elGroup.classList.remove("status-red","status-yellow","status-green");if(c.fields.timeLanded)c.elGroup.classList.add("status-green");else if(c.fields.rescuedBy)c.elGroup.classList.add("status-yellow");else if(c.fields.guestName)c.elGroup.classList.add("status-red");}});updateSummary();}});
+
+// Expose functions globally
 window.applySequences=applySequences;
 window.searchCabin=searchCabin;
 window.clearAllData=clearAllData;
